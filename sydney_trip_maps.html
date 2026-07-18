@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雪梨之旅 2026・每日路線地圖</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#eef1f0;
+    --card:#ffffff;
+    --ink:#1d2d35;
+    --ink-soft:#5c6b72;
+    --navy:#16333f;
+    --line:#dde4e3;
+    --walk:#5f6b6d;
+    --train:#e87722;
+    --bus:#1f6fb2;
+    --lightrail:#c8102e;
+    --ferry:#0097a7;
+    --taxi:#7d4f9e;
+    --flight:#37474f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    background:var(--navy);
+    color:#f4f1ea;
+    padding:26px 18px 14px;
+  }
+  header h1{
+    font-family:"Noto Serif TC","PMingLiU",serif;
+    font-size:1.45rem;
+    letter-spacing:.06em;
+    font-weight:700;
+  }
+  header .sub{
+    font-size:.8rem;
+    opacity:.75;
+    margin-top:4px;
+    letter-spacing:.04em;
+  }
+  .legend{
+    display:flex;flex-wrap:wrap;gap:8px 14px;
+    margin-top:14px;font-size:.72rem;
+  }
+  .legend span{display:inline-flex;align-items:center;gap:5px;opacity:.9;}
+  .swatch{width:22px;height:0;border-top:3px solid;}
+  .swatch.dash{border-top-style:dashed;}
+  .swatch.dot{border-top-style:dotted;border-top-width:4px;}
+  nav{
+    position:sticky;top:0;z-index:1000;
+    background:var(--navy);
+    display:flex;overflow-x:auto;
+    padding:0 10px 12px;gap:8px;
+    scrollbar-width:none;
+  }
+  nav::-webkit-scrollbar{display:none;}
+  nav button{
+    flex:0 0 auto;
+    background:rgba(255,255,255,.10);
+    color:#e8ecec;
+    border:none;border-radius:20px;
+    padding:7px 14px;
+    font-size:.8rem;font-family:inherit;
+    cursor:pointer;white-space:nowrap;
+    transition:background .15s;
+  }
+  nav button.active{
+    background:#f4f1ea;color:var(--navy);font-weight:700;
+  }
+  nav button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+  main{max-width:760px;margin:0 auto;padding:16px 12px 60px;}
+  section.day{display:none;}
+  section.day.show{display:block;}
+  .day-head{
+    padding:14px 6px 12px;
+  }
+  .day-head .date{
+    font-size:.78rem;color:var(--ink-soft);letter-spacing:.12em;
+  }
+  .day-head h2{
+    font-family:"Noto Serif TC","PMingLiU",serif;
+    font-size:1.3rem;margin-top:2px;
+  }
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .chip{
+    font-size:.7rem;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;
+    padding:3px 10px;color:var(--ink-soft);
+  }
+  .mapbox{
+    height:360px;border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);
+    box-shadow:0 2px 10px rgba(22,51,63,.08);
+    background:#dfe6e5;
+  }
+  .map-hint{
+    font-size:.7rem;color:var(--ink-soft);
+    margin:6px 4px 0;text-align:right;
+  }
+  .timeline{
+    background:var(--card);
+    border:1px solid var(--line);border-radius:14px;
+    margin-top:14px;padding:18px 16px 18px 18px;
+  }
+  .stop{display:flex;gap:12px;}
+  .stop .badge{
+    flex:0 0 30px;height:30px;width:30px;
+    background:var(--navy);color:#fff;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:.8rem;font-weight:700;
+    margin-top:2px;
+  }
+  .stop .info{padding-bottom:4px;}
+  .stop .time{
+    font-size:.78rem;font-weight:700;color:var(--ink);
+    letter-spacing:.05em;font-variant-numeric:tabular-nums;
+  }
+  .stop .name{font-size:.95rem;font-weight:700;}
+  .stop .desc{font-size:.8rem;color:var(--ink-soft);margin-top:1px;}
+  .leg{
+    display:flex;gap:12px;align-items:stretch;
+    min-height:44px;
+  }
+  .leg .track{
+    flex:0 0 30px;display:flex;justify-content:center;
+  }
+  .leg .track i{
+    display:block;width:0;
+    border-left:3px solid var(--mode,#999);
+  }
+  .leg.dashed .track i{border-left-style:dashed;}
+  .leg.dotted .track i{border-left-style:dotted;border-left-width:4px;}
+  .leg .how{
+    display:flex;align-items:center;gap:8px;
+    padding:6px 0;flex-wrap:wrap;
+  }
+  .leg .pill{
+    font-size:.72rem;font-weight:700;color:#fff;
+    background:var(--mode,#999);
+    border-radius:12px;padding:2px 10px;
+    white-space:nowrap;
+  }
+  .leg .lbl{font-size:.78rem;color:var(--ink-soft);}
+  .leg a.nav{
+    font-size:.72rem;color:var(--bus);
+    text-decoration:none;border:1px solid var(--bus);
+    border-radius:12px;padding:1px 9px;white-space:nowrap;
+  }
+  .daynote{
+    margin-top:14px;background:#f8f5ec;
+    border:1px solid #e6ddc8;border-radius:14px;
+    padding:14px 16px;font-size:.8rem;color:#4d4635;
+  }
+  .daynote b{display:block;margin-bottom:4px;font-size:.78rem;letter-spacing:.08em;}
+  .stop-marker{
+    background:var(--navy);color:#fff;border-radius:50%;
+    width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;border:2px solid #fff;
+    box-shadow:0 1px 4px rgba(0,0,0,.35);
+  }
+  footer{
+    text-align:center;font-size:.7rem;color:var(--ink-soft);
+    padding:0 20px 40px;
+  }
+  @media(min-width:640px){
+    .mapbox{height:420px;}
+    header h1{font-size:1.7rem;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none!important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>雪梨之旅・每日路線地圖</h1>
+  <div class="sub">2026/8/22 – 8/31・臺北 → 廈門 → 雪梨・兩人・冬末 8–19°C・日落約 17:25</div>
+  <div class="legend">
+    <span><i class="swatch dash" style="border-color:var(--walk)"></i>步行</span>
+    <span><i class="swatch" style="border-color:var(--train)"></i>火車</span>
+    <span><i class="swatch" style="border-color:var(--bus)"></i>公車</span>
+    <span><i class="swatch" style="border-color:var(--lightrail)"></i>輕軌</span>
+    <span><i class="swatch dot" style="border-color:var(--ferry)"></i>渡輪</span>
+    <span><i class="swatch" style="border-color:var(--taxi)"></i>計程車</span>
+  </div>
+</header>
+
+<nav id="tabs"></nav>
+<main id="days"></main>
+
+<footer>
+  地圖路線為示意軌跡（非實際道路），實際導航請點各段「導航」開啟 Google Maps。<br>
+  地圖圖資 © OpenStreetMap 貢獻者 © CARTO・需連網載入
+</footer>
+
+<script>
+const MODES = {
+  walk:      {label:'步行',   css:'var(--walk)',      color:'#5f6b6d', dash:'6 6',  cls:'dashed', gm:'walking'},
+  train:     {label:'火車',   css:'var(--train)',     color:'#e87722', dash:null,   cls:'',       gm:'transit'},
+  bus:       {label:'公車',   css:'var(--bus)',       color:'#1f6fb2', dash:null,   cls:'',       gm:'transit'},
+  lightrail: {label:'輕軌',   css:'var(--lightrail)', color:'#c8102e', dash:null,   cls:'',       gm:'transit'},
+  ferry:     {label:'渡輪',   css:'var(--ferry)',     color:'#0097a7', dash:'1 8',  cls:'dotted', gm:'transit'},
+  taxi:      {label:'計程車', css:'var(--taxi)',      color:'#7d4f9e', dash:null,   cls:'',       gm:'driving'},
+  flight:    {label:'飛機',   css:'var(--flight)',    color:'#37474f', dash:'2 10', cls:'dotted', gm:null}
+};
+
+/* 常用轉乘節點座標（僅用於畫示意軌跡） */
+const GS=[-33.9063,151.2033], CEN=[-33.8832,151.2062], CQ=[-33.8615,151.2110],
+      WYN=[-33.8659,151.2058], TH=[-33.8732,151.2064], STR=[-33.8720,151.0942],
+      BJ=[-33.8912,151.2501], HOME=[-33.9168,151.2043];
+
+const DAYS = [
+{
+  id:'d0', tab:'8/22 六', date:'2026 / 08 / 22（六）', title:'廈門轉機半日遊',
+  chips:['MF888 11:10 TPE→12:50 XMN','MF801 22:00 XMN→SYD','需台胞證'],
+  stops:[
+    {t:'12:50', n:'廈門高崎機場 T3', d:'入境＋出關約 50 分；行李已在桃園直掛雪梨', ll:[24.5459,118.1273], q:'厦门高崎国际机场T3'},
+    {t:'14:30', n:'沙坡尾藝術西區', d:'避風塢老漁港、文創小店，先吃小吃墊胃', ll:[24.4403,118.0923], q:'厦门沙坡尾'},
+    {t:'16:00', n:'頂澳仔貓街', d:'貓咪主題彩繪街，順路快逛', ll:[24.4426,118.0942], q:'厦门顶澳仔猫街'},
+    {t:'16:30', n:'演武大橋觀景平台', d:'海上步道、遠眺廈大白城沙灘', ll:[24.4367,118.0866], q:'演武大桥观景平台'},
+    {t:'17:00', n:'中山路步行街', d:'晚餐：沙茶麵、海蠣煎、花生湯', ll:[24.4560,118.0802], q:'厦门中山路步行街'},
+    {t:'19:15', n:'回到機場 T3', d:'19:30 前務必抵達；22:00 MF801 起飛', ll:[24.5459,118.1273], q:'厦门高崎国际机场T3'}
+  ],
+  legs:[
+    {m:'taxi', l:'計程車／滴滴 約 25 分'},
+    {m:'walk', l:'步行約 10 分'},
+    {m:'walk', l:'步行約 12 分'},
+    {m:'taxi', l:'車程約 10 分'},
+    {m:'taxi', l:'計程車約 30 分（尖峰抓 40 分）'}
+  ],
+  note:'台胞證必備（無證可在高崎機場辦一次性台胞證，出發前確認最新規定）。大陸以行動支付為主：先在支付寶綁國際信用卡、備少量現金。Google 服務在當地不可靠，導航請改用高德或百度地圖。鼓浪嶼來回太趕，本次不排。'
+},
+{
+  id:'d1', tab:'8/23 日', date:'2026 / 08 / 23（日）', title:'抵達・岩石區市集＋天文台山日落',
+  chips:['09:20 落地雪梨','The Rocks Market 週六日限定','17:25 日落'],
+  stops:[
+    {t:'09:20', n:'雪梨機場國際航廈', d:'入境、領行李、食品申報，約 70 分出關', ll:[-33.9365,151.1664], q:'Sydney International Airport T1'},
+    {t:'11:00', n:'Rosebery 住處', d:'放行李（提早入住／寄放已向房東詢問）', ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'13:15', n:'The Rocks Market', d:'週六日限定 10:00–17:00，順逛岩石區老街', ll:[-33.8593,151.2089], q:'The Rocks Markets Sydney'},
+    {t:'15:30', n:"Campbell's Cove", d:'歌劇院的第一眼、港邊散步', ll:[-33.8577,151.2103], q:'Campbells Cove Sydney'},
+    {t:'16:40', n:'Observatory Hill', d:'17:25 日落，港灣大橋最佳視角', ll:[-33.8598,151.2043], q:'Observatory Hill Sydney'},
+    {t:'18:30', n:'CC MART 採買', d:'補一週早餐與自炊食材（營業到晚）', ll:[-33.9186,151.2015], q:'CC Mart Rosebery'},
+    {t:'19:00', n:'回到住處', d:'早睡調時差', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+  ],
+  legs:[
+    {m:'taxi', l:'計程車約 15 分・兩人合搭比火車＋機場站費划算'},
+    {m:'train', l:'步行至 Green Square → T8 → Central 轉 Circular Quay，約 40 分', via:[GS,CEN,CQ]},
+    {m:'walk', l:'步行 5 分'},
+    {m:'walk', l:'步行上坡約 10 分'},
+    {m:'train', l:'Circular Quay → Central → Green Square，約 40 分', via:[CQ,CEN,GS]},
+    {m:'walk', l:'步行 3 分'}
+  ],
+  note:'交通卡：直接用感應式信用卡逼卡（兩人各一張）。今天行程刻意排輕鬆，撐到晚上再睡，隔天就能接上時差。'
+},
+{
+  id:'d2', tab:'8/24 一', date:'2026 / 08 / 24（一）', title:'歌劇院・植物園・城中經典徒步',
+  chips:['全程順路步行','美術館與博物館免費','晚餐 Bar Totti\u2019s'],
+  stops:[
+    {t:'08:30', n:'住處出發', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'09:15', n:'雪梨歌劇院', d:'沿岸環繞拍照；內部 1 小時導覽需預約（可選）', ll:[-33.8568,151.2153], q:'Sydney Opera House'},
+    {t:'10:15', n:'皇家植物園', d:'免費入園，沿海灣步道穿越', ll:[-33.8642,151.2166], q:'Royal Botanic Garden Sydney'},
+    {t:'11:30', n:'麥奎里夫人石椅', d:'歌劇院＋大橋同框招牌機位', ll:[-33.8587,151.2222], q:'Mrs Macquaries Chair'},
+    {t:'12:15', n:"Harry's Café de Wheels", d:'午餐：招牌 Tiger 肉派', ll:[-33.8695,151.2226], q:"Harry's Cafe de Wheels Woolloomooloo"},
+    {t:'13:15', n:'新南威爾斯美術館（可選）', d:'免費，回程順路 45 分', ll:[-33.8688,151.2173], q:'Art Gallery of New South Wales'},
+    {t:'14:15', n:'聖母主教座堂', d:'', ll:[-33.8712,151.2133], q:'St Marys Cathedral Sydney'},
+    {t:'14:45', n:'海德公園', d:'亞奇伯噴泉', ll:[-33.8731,151.2114], q:'Hyde Park Sydney'},
+    {t:'15:00', n:'澳洲博物館', d:'常設展免費，17:00 閉館', ll:[-33.8742,151.2130], q:'Australian Museum'},
+    {t:'17:30', n:"Bar Totti's 晚餐", d:'義大利菜，George St 近 Wynyard，可先訂位', ll:[-33.8659,151.2073], q:"Bar Totti's Sydney"},
+    {t:'19:30', n:'回到住處', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+  ],
+  legs:[
+    {m:'train', l:'Green Square → Central → Circular Quay，約 40 分', via:[GS,CEN,CQ]},
+    {m:'walk', l:'穿越植物園散步'},
+    {m:'walk', l:'園內步道約 15 分'},
+    {m:'walk', l:'沿海灣步行約 15 分'},
+    {m:'walk', l:'步行 8 分'},
+    {m:'walk', l:'步行 10 分'},
+    {m:'walk', l:'步行 3 分'},
+    {m:'walk', l:'穿越公園 2 分'},
+    {m:'walk', l:'步行 20 分（或 Museum 站搭兩站到 Wynyard）'},
+    {m:'train', l:'Wynyard → Central → Green Square，約 30 分', via:[WYN,CEN,GS]}
+  ],
+  note:'週一博物館與美術館人少。想進歌劇院內部要先在官網預約導覽場次。'
+},
+{
+  id:'d3', tab:'8/25 二', date:'2026 / 08 / 25（二）', title:'藍山國家公園一日遊',
+  chips:['平日避開人潮','山上 0–12°C 帶大衣','Scenic World 線上購票'],
+  stops:[
+    {t:'07:00', n:'住處出發', d:'早餐帶著路上吃', ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'09:30', n:'Katoomba 車站', d:'', ll:[-33.7128,150.3119], q:'Katoomba Station'},
+    {t:'10:00', n:'Echo Point 三姊妹岩', d:'觀景台＋峽谷全景', ll:[-33.7320,150.3122], q:'Echo Point Katoomba'},
+    {t:'11:15', n:'Scenic World', d:'礦車鐵道、纜車、雨林棧道；套票線上買較省', ll:[-33.7273,150.2996], q:'Scenic World Katoomba'},
+    {t:'14:45', n:'Leura 小鎮（可選）', d:'精緻山中小村，一站即到', ll:[-33.7180,150.3305], q:'Leura NSW'},
+    {t:'18:30', n:'Spice Alley 晚餐', d:'Chippendale 亞洲小吃巷，便宜好吃', ll:[-33.8843,151.1999], q:'Spice Alley Chippendale'},
+    {t:'19:45', n:'回到住處', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+  ],
+  legs:[
+    {m:'train', l:'Green Square → Central 轉藍山線直達，約 2 小時 20 分', via:[GS,CEN]},
+    {m:'bus', l:'686 公車約 10 分（或步行 30 分）'},
+    {m:'walk', l:'Prince Henry 懸崖步道約 40 分'},
+    {m:'bus', l:'686 回 Katoomba → 火車一站到 Leura'},
+    {m:'train', l:'Leura → Central，約 2 小時', via:[CEN]},
+    {m:'train', l:'Central → Green Square ＋ 步行，約 20 分', via:[GS]}
+  ],
+  note:'地圖含市區到藍山全程，兩指縮放可看 Katoomba 局部。回程火車班距約 30–60 分，出發前一晚用 Transport NSW Trip Planner 確認有無週間軌道施工。'
+},
+{
+  id:'d4', tab:'8/26 三', date:'2026 / 08 / 26（三）', title:'塔龍加動物園・Balmoral 海灘',
+  chips:['F2 渡輪＝迷你港灣遊船','門票線上買較便宜','晚上自炊'],
+  stops:[
+    {t:'08:15', n:'住處出發', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'08:55', n:'Circular Quay', d:'F2 渡輪碼頭', ll:CQ, q:'Circular Quay Wharf'},
+    {t:'09:15', n:'Taronga 碼頭', d:'', ll:[-33.8397,151.2416], q:'Taronga Zoo Wharf'},
+    {t:'09:30', n:'塔龍加動物園', d:'接駁上山從正門由上往下逛；長頸鹿＋歌劇院同框機位', ll:[-33.8433,151.2411], q:'Taronga Zoo Sydney'},
+    {t:'14:15', n:'Balmoral Beach', d:'白沙灣、Rocky Point 小島', ll:[-33.8235,151.2515], q:'Balmoral Beach Mosman'},
+    {t:'15:30', n:'The Boathouse Balmoral', d:'喝杯咖啡看海', ll:[-33.8213,151.2529], q:'The Boathouse Balmoral Beach'},
+    {t:'17:00', n:'Taronga 碼頭', d:'搭黃昏渡輪回程，大橋歌劇院夜景', ll:[-33.8397,151.2416], q:'Taronga Zoo Wharf'},
+    {t:'17:15', n:'Circular Quay', d:'', ll:CQ, q:'Circular Quay'},
+    {t:'18:15', n:'回到住處', d:'晚上自炊，連兩天大行程後緩衝', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+  ],
+  legs:[
+    {m:'train', l:'Green Square → Central → Circular Quay，約 35 分', via:[GS,CEN]},
+    {m:'ferry', l:'F2 渡輪 12 分'},
+    {m:'bus', l:'園區接駁車上山 5 分'},
+    {m:'taxi', l:'計程車約 10 分（或 238 公車轉乘）'},
+    {m:'walk', l:'沿灘散步 8 分'},
+    {m:'taxi', l:'計程車約 10 分'},
+    {m:'ferry', l:'渡輪 12 分'},
+    {m:'train', l:'Circular Quay → Central → Green Square，約 35 分', via:[CEN,GS]}
+  ],
+  note:'動物園門票提前線上購買比現場便宜；海豹表演與餵食時間到園後先查看板排順序。'
+},
+{
+  id:'d5', tab:'8/27 四', date:'2026 / 08 / 27（四）', title:'DFO Outlet・QVB 週四購物夜',
+  chips:['雪梨僅週四商店開到 21:00','早餐 Bourke St Bakery（可選）'],
+  stops:[
+    {t:'08:15', n:'住處出發', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'08:50', n:'Bourke St Bakery 總店（可選）', d:'Surry Hills 早餐：牛肉派、酸種可頌', ll:[-33.8890,151.2117], q:'Bourke Street Bakery Surry Hills'},
+    {t:'10:20', n:'DFO Homebush', d:'Outlet 掃貨到 14:00，美食街午餐', ll:[-33.8623,151.0810], q:'DFO Homebush'},
+    {t:'15:00', n:'維多利亞女王大廈 QVB', d:'彩繪玻璃、大鐘；順吃 Auntie Anne\u2019s 蝴蝶餅', ll:[-33.8718,151.2067], q:'Queen Victoria Building'},
+    {t:'17:00', n:'雪梨市政廳', d:'外觀＋St Andrew\u2019s 教堂', ll:[-33.8732,151.2064], q:'Sydney Town Hall'},
+    {t:'17:20', n:'Pitt St Mall 購物夜', d:'週四營業至 21:00，晚餐周邊解決', ll:[-33.8703,151.2087], q:'Pitt Street Mall Sydney'},
+    {t:'19:45', n:'回到住處', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+  ],
+  legs:[
+    {m:'train', l:'Green Square → Central ＋ 步行 15 分', via:[GS,CEN]},
+    {m:'train', l:'步行回 Central → Strathfield → 步行 15 分', via:[CEN,STR]},
+    {m:'train', l:'Strathfield → Town Hall，約 25 分', via:[STR,TH]},
+    {m:'walk', l:'步行 2 分'},
+    {m:'walk', l:'步行 3 分'},
+    {m:'train', l:'Town Hall → Central → Green Square，約 30 分', via:[CEN,GS]}
+  ],
+  note:'不吃可選早餐就直接 Central 轉 Strathfield，DFO 十點開門。行李箱空間先預留，戰利品今天集中買齊。'
+},
+{
+  id:'d6', tab:'8/28 五', date:'2026 / 08 / 28（五）', title:'雪梨大學・新魚市場・唐人街',
+  chips:['新魚市場 2026/1 開幕','Paddy\u2019s 週三–日營業'],
+  stops:[
+    {t:'08:30', n:'住處出發', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'08:45', n:'The Grounds Coffee Factory', d:'早餐（住處附近 Alexandria 一帶）', ll:[-33.9106,151.1940], q:'The Grounds Coffee Factory Alexandria'},
+    {t:'10:00', n:'雪梨大學', d:'主四合院、Graffiti Tunnel', ll:[-33.8880,151.1874], q:'University of Sydney Quadrangle'},
+    {t:'11:20', n:'Glebe Point Rd', d:'老街散步、二手書店', ll:[-33.8802,151.1863], q:'Glebe Point Road'},
+    {t:'12:15', n:'新雪梨魚市場', d:'Blackwattle Bay 新館：海鮮午餐＋逛 42 家攤商', ll:[-33.8776,151.1856], q:'Sydney Fish Market'},
+    {t:'15:00', n:"Paddy's Markets", d:'紀念品最便宜的地方（週三–日）', ll:[-33.8792,151.2043], q:'Paddys Markets Haymarket'},
+    {t:'16:30', n:'唐人街', d:'德信街、Darling Square 晃晃', ll:[-33.8783,151.2037], q:'Chinatown Sydney'},
+    {t:'17:30', n:'Hay St Market 晚餐', d:'美食街收尾', ll:[-33.8797,151.2056], q:'Hay St Market Haymarket'},
+    {t:'19:15', n:'回到住處', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+  ],
+  legs:[
+    {m:'walk', l:'步行約 15 分'},
+    {m:'bus', l:'370 公車約 20 分'},
+    {m:'walk', l:'校園＋Glebe 散步約 20 分'},
+    {m:'walk', l:'步行約 15 分'},
+    {m:'lightrail', l:'步行至 Wentworth Park → L1 輕軌 → Paddy\u2019s Markets 站，約 20 分', via:[[-33.8779,151.1902]]},
+    {m:'walk', l:'步行 3 分'},
+    {m:'walk', l:'步行 4 分'},
+    {m:'train', l:'步行到 Central → Green Square，約 25 分', via:[CEN,GS]}
+  ],
+  note:'魚市場定番：生蠔、綜合炸海鮮拼盤、生魚片丼；買了就到戶外水岸座位吃。'
+},
+{
+  id:'d7', tab:'8/29 六', date:'2026 / 08 / 29（六）', title:'邦迪海灘・海岸步道・打包日',
+  chips:['Bondi 農夫市集週六 9–13','8 月底有機會望見鯨魚'],
+  stops:[
+    {t:'08:00', n:'THEECA 早餐', d:'住處旁的 Rosebery 名店，週末早點到', ll:[-33.9163,151.1993], q:'THEECA Rosebery'},
+    {t:'09:45', n:'Bondi Farmers Market', d:'週六 9:00–13:00 快逛', ll:[-33.8880,151.2777], q:'Bondi Beach Public School'},
+    {t:'10:30', n:'邦迪海灘', d:'', ll:[-33.8908,151.2743], q:'Bondi Beach'},
+    {t:'11:00', n:'Icebergs 泳池', d:'招牌機位拍照', ll:[-33.8950,151.2745], q:'Bondi Icebergs'},
+    {t:'12:30', n:'Bronte Beach', d:'海岸步道終點，冬季海色最藍', ll:[-33.9037,151.2688], q:'Bronte Beach'},
+    {t:'13:15', n:'Bondi 午餐', d:'', ll:[-33.8913,151.2749], q:'Bondi Beach'},
+    {t:'14:30', n:'Bondi Junction', d:'可順逛 Westfield', ll:BJ, q:'Bondi Junction Station'},
+    {t:'15:30', n:'回到住處', d:'打包行李、清冰箱、確認明早火車時刻', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+  ],
+  legs:[
+    {m:'train', l:'火車經 Central → Bondi Junction → 333 公車，約 50 分（或查 418 公車直達 Bondi Junction）', via:[GS,CEN,BJ]},
+    {m:'walk', l:'步行 5 分'},
+    {m:'walk', l:'沿灘步行 10 分'},
+    {m:'walk', l:'Bondi→Bronte 海岸步道約 1 小時'},
+    {m:'bus', l:'379／333 公車回邦迪約 10 分'},
+    {m:'bus', l:'333 公車約 15 分'},
+    {m:'train', l:'Bondi Junction → Central → Green Square，約 30 分', via:[CEN,GS]}
+  ],
+  note:'今晚 Darling Harbour 沒有煙火（冬季改每月第一個週六），晚上就在住處附近輕鬆吃或自炊收尾。'
+},
+{
+  id:'d8', tab:'8/30 日', date:'2026 / 08 / 30（日）', title:'離境日・雪梨馬拉松封路',
+  chips:['市中心封路・火車不受影響','11:25 MF802 起飛','廈門中轉過夜'],
+  stops:[
+    {t:'07:30', n:'住處出發', d:'馬拉松日：Rosebery 本地道路不在封路範圍', ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'07:50', n:'Green Square 站', d:'', ll:GS, q:'Green Square Station'},
+    {t:'08:05', n:'機場國際航廈', d:'08:15 廈航櫃檯報到（起飛前 60 分關櫃）；11:25 MF802 起飛', ll:[-33.9365,151.1664], q:'Sydney International Airport T1'}
+  ],
+  legs:[
+    {m:'walk', l:'拖行李步行 12–15 分（或叫短程計程車，留緩衝）'},
+    {m:'train', l:'T8 兩站約 8 分'}
+  ],
+  note:'落地廈門 18:55 → 中轉酒店過夜（入境仍需台胞證）。在雪梨報到時確認行李掛到廈門或直掛台北——若直掛台北，換洗衣物記得放隨身包。8/31 08:20 MF887 → 10:10 抵桃園。'
+}
+];
+
+/* ---------- 建立分頁與內容 ---------- */
+const tabsEl = document.getElementById('tabs');
+const daysEl = document.getElementById('days');
+const mapInit = {};
+
+DAYS.forEach((day, i) => {
+  const btn = document.createElement('button');
+  btn.textContent = day.tab;
+  btn.addEventListener('click', () => showDay(i));
+  tabsEl.appendChild(btn);
+
+  const sec = document.createElement('section');
+  sec.className = 'day';
+  sec.id = day.id;
+
+  let html = `
+    <div class="day-head">
+      <div class="date">${day.date}</div>
+      <h2>${day.title}</h2>
+      <div class="chips">${day.chips.map(c=>`<span class="chip">${c}</span>`).join('')}</div>
+    </div>
+    <div class="mapbox" id="map-${day.id}"></div>
+    <div class="map-hint">路線為示意軌跡・可縮放</div>
+    <div class="timeline">`;
+
+  day.stops.forEach((s, j) => {
+    html += `
+      <div class="stop">
+        <div class="badge">${j+1}</div>
+        <div class="info">
+          <div class="time">${s.t}</div>
+          <div class="name">${s.n}</div>
+          ${s.d ? `<div class="desc">${s.d}</div>` : ''}
+        </div>
+      </div>`;
+    if (j < day.legs.length) {
+      const leg = day.legs[j];
+      const m = MODES[leg.m];
+      const o = day.stops[j], dst = day.stops[j+1];
+      const navLink = m.gm
+        ? `<a class="nav" target="_blank" rel="noopener"
+             href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(o.q)}&destination=${encodeURIComponent(dst.q)}&travelmode=${m.gm}">導航</a>`
+        : '';
+      html += `
+      <div class="leg ${m.cls}" style="--mode:${m.css}">
+        <div class="track"><i></i></div>
+        <div class="how">
+          <span class="pill">${m.label}</span>
+          <span class="lbl">${leg.l}</span>
+          ${navLink}
+        </div>
+      </div>`;
+    }
+  });
+
+  html += `</div>`;
+  if (day.note) html += `<div class="daynote"><b>NOTE</b>${day.note}</div>`;
+  sec.innerHTML = html;
+  daysEl.appendChild(sec);
+});
+
+function buildMap(day) {
+  const map = L.map('map-' + day.id, { scrollWheelZoom: false });
+  const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+    subdomains: 'abcd',
+    maxZoom: 19,
+    crossOrigin: true,
+    attribution: '&copy; OpenStreetMap &copy; CARTO'
+  }).addTo(map);
+  /* 備援：若主要圖磚來源被擋，自動改用 OSM */
+  let swapped = false;
+  carto.on('tileerror', () => {
+    if (swapped) return;
+    swapped = true;
+    map.removeLayer(carto);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      crossOrigin: true,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+  });
+
+  const bounds = [];
+
+  day.stops.forEach((s, j) => {
+    bounds.push(s.ll);
+    L.marker(s.ll, {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="stop-marker">${j+1}</div>`,
+        iconSize: [26,26], iconAnchor: [13,13]
+      })
+    }).addTo(map).bindPopup(`<b>${s.t}</b>　${s.n}`);
+  });
+
+  day.legs.forEach((leg, j) => {
+    const m = MODES[leg.m];
+    const pts = [day.stops[j].ll, ...(leg.via || []), day.stops[j+1].ll];
+    (leg.via || []).forEach(v => bounds.push(v));
+    L.polyline(pts, {
+      color: m.color,
+      weight: 4,
+      opacity: .85,
+      dashArray: m.dash || null
+    }).addTo(map);
+  });
+
+  map.fitBounds(bounds, { padding: [30, 30] });
+  return map;
+}
+
+function showDay(i) {
+  document.querySelectorAll('nav button').forEach((b, j) => b.classList.toggle('active', j === i));
+  document.querySelectorAll('section.day').forEach((s, j) => s.classList.toggle('show', j === i));
+  const day = DAYS[i];
+  if (!mapInit[day.id]) {
+    mapInit[day.id] = buildMap(day);
+  }
+  setTimeout(() => mapInit[day.id].invalidateSize(), 60);
+}
+
+showDay(1); /* 預設顯示 8/23 抵達日 */
+</script>
+</body>
+</html>
