@@ -226,67 +226,19 @@
   .note-block{
     margin:2px 0 10px 42px;
   }
-  .note-toggle{
-    display:inline-flex;align-items:center;gap:6px;
-    font-family:inherit;font-size:.72rem;font-weight:600;color:var(--ink-soft);
-    background:none;border:none;cursor:pointer;padding:2px 0;
+  .note-label{
+    font-size:.7rem;font-weight:600;color:var(--ink-soft);
+    margin-bottom:4px;
   }
-  .note-toggle:hover{color:var(--navy);}
-  .note-chevron{
-    display:inline-block;font-size:.85rem;line-height:1;
-    transition:transform .15s;
-  }
-  .note-toggle.expanded .note-chevron{transform:rotate(90deg);}
-  .note-dot{
-    width:6px;height:6px;border-radius:50%;background:var(--bus);
-  }
-  .note-dot[hidden]{display:none;}
-  .note-panel{
-    margin-top:6px;background:#f6f8f8;border:1px solid var(--line);
-    border-radius:12px;padding:10px 12px;
-  }
-  .note-panel[hidden]{display:none;}
-  .note-comment{
-    background:#fff;border:1px solid var(--line);border-radius:10px;
-    padding:10px 12px;
-  }
-  .note-comment[hidden]{display:none;}
-  .note-comment-head{
-    display:flex;align-items:baseline;gap:8px;margin-bottom:4px;flex-wrap:wrap;
-  }
-  .note-comment-author{font-size:.78rem;font-weight:600;color:var(--ink);}
-  .note-comment-time{font-size:.68rem;color:var(--ink-soft);}
-  .note-comment-text{
-    font-size:.82rem;color:var(--ink);white-space:pre-wrap;word-break:break-word;
-  }
-  .note-edit-btn{
-    display:inline-block;margin-top:8px;
-    font-family:inherit;font-size:.7rem;font-weight:600;color:var(--bus);
-    background:none;border:none;cursor:pointer;padding:0;
-  }
-  .note-editor[hidden]{display:none;}
   .note-text{
-    width:100%;min-height:60px;resize:vertical;
+    width:100%;min-height:44px;resize:vertical;
     font-family:inherit;font-size:.82rem;color:var(--ink);
     border:1px solid var(--line);border-radius:8px;padding:8px;
-    background:#fff;
+    background:#f6f8f8;
   }
-  .note-footer{
-    display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;
-  }
-  .note-author{
-    flex:1 1 120px;min-width:100px;
-    font-family:inherit;font-size:.75rem;color:var(--ink);
-    border:1px solid var(--line);border-radius:8px;padding:5px 8px;
-    background:#fff;
-  }
-  .note-save{
-    flex:0 0 auto;font-family:inherit;font-size:.75rem;font-weight:600;
-    background:var(--navy);color:#fff;border:none;border-radius:10px;
-    padding:6px 14px;cursor:pointer;
-  }
-  .note-meta{
-    margin-top:6px;font-size:.68rem;color:var(--ink-soft);
+  .note-text:focus{background:#fff;}
+  .note-hint{
+    margin-top:4px;font-size:.68rem;color:var(--ink-soft);
   }
   .stop-marker{
     position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
@@ -354,12 +306,8 @@ const UI = {
     langBtn:'日本語',
     docTitle:'雪梨之旅 2026・每日路線地圖',
     noteToggle:'備註',
-    notePlaceholder:'在這裡加一則備註，其他人也看得到…',
-    noteAuthorPlaceholder:'你的名字（選填）',
-    noteSave:'儲存',
-    noteSaving:'儲存中…',
+    notePlaceholder:'在這裡自由寫備註，其他人也看得到…',
     noteOffline:'尚未連接同步服務，這則備註只存在這台裝置（需要設定 Firebase）',
-    noteEdit:'編輯',
     editModeOn:'編輯行程',
     editModeOff:'完成編輯',
     editDescPlaceholder:'說明（可留白）',
@@ -378,12 +326,8 @@ const UI = {
     langBtn:'中文',
     docTitle:'シドニー旅行 2026・毎日ルートマップ',
     noteToggle:'メモ',
-    notePlaceholder:'ここにメモを追加、他の人にも見えます…',
-    noteAuthorPlaceholder:'お名前（任意）',
-    noteSave:'保存',
-    noteSaving:'保存中…',
+    notePlaceholder:'ここに自由にメモを書けます、他の人にも見えます…',
     noteOffline:'同期サービス未接続、このメモはこの端末にのみ保存されます（Firebaseの設定が必要）',
-    noteEdit:'編集',
     editModeOn:'行程を編集',
     editModeOff:'編集を終了',
     editDescPlaceholder:'説明（空欄可）',
@@ -432,82 +376,36 @@ try {
   }
 } catch (e) { notesDb = null; }
 
-const notesCache = {};      /* key = `${dayId}_${stopIndex}` → {text, author, updatedAt} */
+const notesCache = {};      /* key = `${dayId}_${stopIndex}` → {text, updatedAt} */
 const NOTES_LOCAL_KEY = 'sydNotesLocal';
 try { Object.assign(notesCache, JSON.parse(localStorage.getItem(NOTES_LOCAL_KEY) || '{}')); } catch (e) {}
 
-function formatNoteTime(d) {
-  const p = n => String(n).padStart(2, '0');
-  return `${d.getMonth()+1}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-/* 用 textContent 而不是 innerHTML：備註沒有登入機制，任何人都能寫，
-   避免有人貼 HTML/script 進來造成 stored XSS。 */
-function renderComment(block, entry) {
-  block.querySelector('.note-comment-author').textContent = (entry && entry.author) || '';
-  block.querySelector('.note-comment-time').textContent =
-    entry && entry.updatedAt ? formatNoteTime(new Date(entry.updatedAt)) : '';
-  block.querySelector('.note-comment-text').textContent = (entry && entry.text) || '';
-}
-
-function showCommentView(block) {
-  block.querySelector('.note-comment').hidden = false;
-  block.querySelector('.note-editor').hidden = true;
-}
-
-function showEditorView(block) {
-  const key = block.dataset.key;
-  const entry = notesCache[key];
-  block.querySelector('.note-comment').hidden = true;
-  block.querySelector('.note-editor').hidden = false;
-  block.querySelector('.note-text').value = (entry && entry.text) || '';
-  block.querySelector('.note-author').value =
-    localStorage.getItem('sydNoteAuthor') || (entry && entry.author) || '';
-  block.querySelector('.note-meta').textContent = notesDb ? '' : UI[LANG].noteOffline;
-}
-
-function refreshNoteBlock(block) {
-  const key = block.dataset.key;
-  const entry = notesCache[key];
-  block.querySelector('.note-dot').hidden = !(entry && entry.text);
-  const panel = block.querySelector('.note-panel');
-  if (panel.hidden) return;
-  /* 讀取畫面隨時可以安全更新；編輯畫面可能正在打字，交給使用者自己按儲存，
-     絕不能被別人的同步更新蓋掉。 */
-  if (!block.querySelector('.note-comment').hidden) renderComment(block, entry);
-}
-
-function refreshAllVisibleNoteBlocks() {
-  document.querySelectorAll('.note-block').forEach(refreshNoteBlock);
-}
-
+/* 備註是一塊永遠顯示、任何人都能直接打字的自由編輯區，離開焦點就存檔，
+   沒有登入機制也不記名。同步邏輯跟下面的行程編輯模式共用同一套模式：
+   樂觀更新本機快取＋Firestore 即時監聽，正在打字的欄位不會被別人的
+   更新蓋掉。 */
 if (notesDb) {
   notesDb.collection('notes').onSnapshot(snap => {
     snap.docChanges().forEach(change => {
-      if (change.type === 'removed') {
-        delete notesCache[change.doc.id];
-        return;
-      }
+      if (change.type === 'removed') { delete notesCache[change.doc.id]; return; }
       const d = change.doc.data();
       notesCache[change.doc.id] = {
         text: d.text || '',
-        author: d.author || '',
         updatedAt: d.updatedAt && d.updatedAt.toMillis ? d.updatedAt.toMillis() : Date.now()
       };
     });
-    refreshAllVisibleNoteBlocks();
+    document.querySelectorAll('.note-text').forEach(el => {
+      if (el === document.activeElement) return;
+      el.value = (notesCache[el.dataset.notekey] && notesCache[el.dataset.notekey].text) || '';
+    });
   }, () => { /* 讀取失敗就維持離線模式，不打斷使用 */ });
 }
 
-function saveNote(key, text, author) {
-  try { localStorage.setItem('sydNoteAuthor', author); } catch (e) {}
-  /* 先樂觀更新本機快取，畫面馬上反應；Firestore 回來的版本稍後
-     會用伺服器時間覆蓋過去，不影響顯示。 */
-  notesCache[key] = { text, author, updatedAt: Date.now() };
+function saveNote(key, text) {
+  notesCache[key] = { text, updatedAt: Date.now() };   /* 樂觀更新，畫面馬上反應 */
   if (notesDb) {
     notesDb.collection('notes').doc(key).set({
-      text, author,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      text, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }).catch(() => {});
   } else {
     try { localStorage.setItem(NOTES_LOCAL_KEY, JSON.stringify(notesCache)); } catch (e) {}
@@ -576,43 +474,8 @@ function refreshEditableFields() {
   });
 }
 
-function wireNoteBlock(block) {
-  const key = block.dataset.key;
-  const toggle = block.querySelector('.note-toggle');
-  const panel = block.querySelector('.note-panel');
-  const editBtn = block.querySelector('.note-edit-btn');
-  const saveBtn = block.querySelector('.note-save');
-  const textarea = block.querySelector('.note-text');
-  const authorInput = block.querySelector('.note-author');
-
-  refreshNoteBlock(block);   /* 面板預設關閉，這裡只會更新小圓點 */
-
-  toggle.addEventListener('click', e => {
-    e.stopPropagation();
-    panel.hidden = !panel.hidden;
-    toggle.classList.toggle('expanded', !panel.hidden);
-    if (!panel.hidden) {
-      const entry = notesCache[key];
-      if (entry && entry.text) { showCommentView(block); renderComment(block, entry); }
-      else showEditorView(block);
-    }
-  });
-  ['click', 'keydown', 'mousedown'].forEach(evt => {
-    panel.addEventListener(evt, e => e.stopPropagation());
-  });
-  editBtn.addEventListener('click', () => showEditorView(block));
-  saveBtn.addEventListener('click', () => {
-    const text = textarea.value.trim();
-    const author = authorInput.value.trim();
-    saveNote(key, text, author);
-    saveBtn.textContent = UI[LANG].noteSaving;
-    setTimeout(() => {
-      saveBtn.textContent = UI[LANG].noteSave;
-      const entry = notesCache[key];
-      if (entry && entry.text) { showCommentView(block); renderComment(block, entry); }
-      refreshNoteBlock(block);
-    }, 300);
-  });
+function wireNoteBlock(textarea) {
+  textarea.addEventListener('blur', () => saveNote(textarea.dataset.notekey, textarea.value));
 }
 
 /* 常用轉乘節點座標（僅用於畫示意軌跡） */
@@ -792,29 +655,27 @@ const DAYS = [
   title:{zh:'DFO Outlet・美術館・週四購物夜', ja:'DFOアウトレット・美術館・木曜ナイトショッピング'},
   chips:[
     {zh:'雪梨僅週四商店開到 21:00', ja:'シドニーは木曜のみ21:00まで営業'},
-    {zh:'DFO 後到公園走走，午後排美術館', ja:'DFOの後は公園を散策、午後は美術館'},
+    {zh:'午後排美術館，購物分兩段', ja:'午後は美術館、買い物は2回に分けて'},
     {zh:'早餐 Bourke St Bakery（可選）', ja:'朝食はBourke St Bakery（任意）'}
   ],
   stops:[
     {t:'08:15', n:{zh:'住處出發',ja:'宿を出発'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
     {t:'08:50', n:{zh:'Bourke St Bakery 總店（可選）',ja:'Bourke St Bakery 本店（任意）'}, d:{zh:'Surry Hills 早餐：牛肉派、酸種可頌',ja:'Surry Hillsで朝食：ビーフパイ、サワードウクロワッサン'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8890,151.2117], q:'Bourke Street Bakery Surry Hills'},
     {t:'10:20', n:{zh:'DFO Homebush',ja:'DFOホームブッシュ'}, d:{zh:'Outlet 掃貨，美食街午餐；買齊就走，別耗到閉店',ja:'アウトレットで買い物、フードコートで昼食；買い終えたら切り上げる'}, dur:{zh:'約 2 小時 40 分',ja:'約2時間40分'}, ll:[-33.8623,151.0810], q:'DFO Homebush'},
-    {t:'13:15', n:{zh:'Bicentennial Park',ja:'ビセンテニアル・パーク'}, d:{zh:'DFO 隔壁的濕地公園，木棧道＋觀景塔，走走透氣、跟血拚完全不同步調',ja:'DFOのすぐ隣にある湿地公園、木道と展望タワーで一息；ショッピングとは全く違うペースで過ごせる'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8469,151.0693], q:'Bicentennial Park Sydney Olympic Park'},
-    {t:'14:45', n:{zh:'新南威爾斯美術館',ja:'ニューサウスウェールズ州立美術館'}, d:{zh:'免費；本館看澳洲與原住民藝術，新館 Naala Badu 看當代展，逛完街換個腦袋',ja:'入場無料；本館でオーストラリア・先住民アート、新館Naala Baduで現代美術、買い物の後の気分転換に'}, dur:{zh:'約 1.5 小時',ja:'約1時間30分'}, ll:[-33.8688,151.2173], q:'Art Gallery of New South Wales'},
-    {t:'16:30', n:{zh:'Pitt St Mall 購物夜',ja:'Pitt St Mallでナイトショッピング'}, d:{zh:'週四營業至 21:00，晚餐周邊解決；QVB 已改排到 8/24，不跟這天擠',ja:'木曜は21:00まで営業、夕食も周辺で；QVBは8/24に移したのでこの日とは重ならない'}, dur:{zh:'約 2 小時',ja:'約2時間'}, ll:[-33.8703,151.2087], q:'Pitt Street Mall Sydney'},
-    {t:'19:15', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+    {t:'13:45', n:{zh:'新南威爾斯美術館',ja:'ニューサウスウェールズ州立美術館'}, d:{zh:'免費；本館看澳洲與原住民藝術，新館 Naala Badu 看當代展，逛完街換個腦袋',ja:'入場無料；本館でオーストラリア・先住民アート、新館Naala Baduで現代美術、買い物の後の気分転換に'}, dur:{zh:'約 1.5 小時',ja:'約1時間30分'}, ll:[-33.8688,151.2173], q:'Art Gallery of New South Wales'},
+    {t:'15:30', n:{zh:'Pitt St Mall 購物夜',ja:'Pitt St Mallでナイトショッピング'}, d:{zh:'週四營業至 21:00，晚餐周邊解決；QVB 已改排到 8/24，不跟這天擠',ja:'木曜は21:00まで営業、夕食も周辺で；QVBは8/24に移したのでこの日とは重ならない'}, dur:{zh:'約 2 小時',ja:'約2時間'}, ll:[-33.8703,151.2087], q:'Pitt Street Mall Sydney'},
+    {t:'18:15', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
     {m:'bus', l:{zh:'343 公車 Rothschild Ave 上車，Elizabeth St 下車走 15 分，約 26 分・每 10 分一班',ja:'343系統バスにRothschild Aveから乗車、Elizabeth Stで降りて徒歩15分、約26分・10分間隔'}, via:[B343_JOY,B343_ELIZ]},
     {m:'train', l:{zh:'步行回 Central → Strathfield → 步行 15 分',ja:'Centralまで歩いて戻り → Strathfieldへ → 徒歩15分'}, via:[CEN,STR]},
-    {m:'walk', l:{zh:'步行約 15 分，就在 DFO 隔壁',ja:'徒歩約15分、DFOのすぐ隣'}},
-    {m:'train', l:{zh:'步行回 Sydney Olympic Park 站 → 火車經 Strathfield 到 Museum 站，約 40 分',ja:'Sydney Olympic Park駅まで歩いて戻り → 電車でStrathfield経由Museum駅へ、約40分'}, via:[STR,CEN]},
+    {m:'train', l:{zh:'步行回 Strathfield 站 → 火車經 Central 到 Museum 站，約 45 分',ja:'Strathfield駅まで歩いて戻り → 電車でCentral経由Museum駅へ、約45分'}, via:[STR,CEN]},
     {m:'walk', l:{zh:'穿越海德公園步行約 15 分',ja:'ハイドパークを抜けて徒歩約15分'}},
     {m:'bus', l:{zh:'走到 Elizabeth St 搭 343 → 住處門口，約 40 分',ja:'Elizabeth Stまで歩いて343系統バスに乗車 → 自宅前まで約40分'}, via:BUS343_OUT}
   ],
   note:{
-    zh:'新南威爾斯美術館排回這天下午——從 Bicentennial Park 搭火車回市區時順路到 Museum 站，走 15 分穿過海德公園就到 Pitt St Mall，不用額外繞路。DFO 後到 Bicentennial Park（濕地公園＋觀景塔，就在隔壁不用額外交通）走走透氣，跟美術館、購物完全是三種不同步調，不會逛到膩。第一段從住處直接搭 343 公車（Google 地圖實測約 26 分、每 10 分一班）。不吃可選早餐就直接 Central 轉 Strathfield，DFO 十點開門。行李箱空間先預留，戰利品今天集中買齊。',
-    ja:'ニューサウスウェールズ州立美術館をこの日の午後に戻した——Bicentennial Parkから電車でシティへ戻る際にMuseum駅で降りれば、ハイドパークを15分歩くだけでPitt St Mallに着き、余計な遠回りがない。DFOの後はBicentennial Park（湿地公園＋展望タワー、隣接していて追加の移動不要）で一息、美術館・買い物と合わせて3つの違うペースで過ごせるので飽きない。最初の区間は自宅から343系統バスに直接乗車（Googleマップ実測で約26分・10分間隔）。朝食を省く場合はそのままCentralからStrathfieldへ、DFOは10時開店。スーツケースのスペースを空けておき、お土産はこの日にまとめて購入。'
+    zh:'新南威爾斯美術館排這天下午——DFO 逛完直接搭火車回市區到 Museum 站，走 15 分穿過海德公園就到 Pitt St Mall，不用額外繞路。第一段從住處直接搭 343 公車（Google 地圖實測約 26 分、每 10 分一班）。不吃可選早餐就直接 Central 轉 Strathfield，DFO 十點開門。行李箱空間先預留，戰利品今天集中買齊。',
+    ja:'ニューサウスウェールズ州立美術館はこの日の午後——DFOの後はそのまま電車でシティへ戻りMuseum駅で下車、ハイドパークを15分歩けばPitt St Mallに着き、余計な遠回りがない。最初の区間は自宅から343系統バスに直接乗車（Googleマップ実測で約26分・10分間隔）。朝食を省く場合はそのままCentralからStrathfieldへ、DFOは10時開店。スーツケースのスペースを空けておき、お土産はこの日にまとめて購入。'
   }
 },
 {
@@ -995,27 +856,12 @@ function buildAllDays() {
         </div>`;
       }
 
+      const noteVal = (notesCache[noteKey] && notesCache[noteKey].text) || '';
       html += `
-        <div class="note-block" data-key="${noteKey}">
-          <button type="button" class="note-toggle"><span class="note-chevron">›</span>${ui.noteToggle}<span class="note-dot" hidden></span></button>
-          <div class="note-panel" hidden>
-            <div class="note-comment" hidden>
-              <div class="note-comment-head">
-                <span class="note-comment-author"></span>
-                <span class="note-comment-time"></span>
-              </div>
-              <div class="note-comment-text"></div>
-              <button type="button" class="note-edit-btn">${ui.noteEdit}</button>
-            </div>
-            <div class="note-editor">
-              <textarea class="note-text" placeholder="${ui.notePlaceholder}"></textarea>
-              <div class="note-footer">
-                <input type="text" class="note-author" placeholder="${ui.noteAuthorPlaceholder}">
-                <button type="button" class="note-save">${ui.noteSave}</button>
-              </div>
-              <div class="note-meta"></div>
-            </div>
-          </div>
+        <div class="note-block">
+          <div class="note-label">${ui.noteToggle}</div>
+          <textarea class="note-text" data-notekey="${noteKey}" placeholder="${ui.notePlaceholder}">${escapeHtml(noteVal)}</textarea>
+          ${notesDb ? '' : `<div class="note-hint">${ui.noteOffline}</div>`}
         </div>`;
       if (j < day.legs.length) {
         const leg = day.legs[j];
@@ -1064,7 +910,7 @@ function buildAllDays() {
     }
     sec.querySelector('.show-all').addEventListener('click', () => setFocus(i, null));
 
-    sec.querySelectorAll('.note-block').forEach(wireNoteBlock);
+    sec.querySelectorAll('.note-text').forEach(wireNoteBlock);
 
     daysEl.appendChild(sec);
   });
