@@ -435,7 +435,7 @@ function fieldKey(dayId, kind, index, field, bilingual) {
 /* 有人編輯過就用編輯後的值，否則用行程原本寫死的值 */
 function resolveField(key, fallback) {
   const ov = editsCache[key];
-  return (ov && ov.value != null) ? ov.value : fallback;
+  return (ov && ov.value != null && String(ov.value).trim() !== '') ? ov.value : fallback;
 }
 
 if (notesDb) {
