@@ -26,9 +26,14 @@
   body{
     background:var(--bg);
     color:var(--ink);
+    /* 全站統一黑體（筆畫粗細均勻），不使用明體／襯線體 */
     font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
     line-height:1.6;
     -webkit-font-smoothing:antialiased;
+  }
+  /* Leaflet 內建自己的字體，強制跟著全站走 */
+  .leaflet-container,.leaflet-container .leaflet-popup-content{
+    font-family:inherit;
   }
   header{
     background:var(--navy);
@@ -36,10 +41,9 @@
     padding:26px 18px 14px;
   }
   header h1{
-    font-family:"Noto Serif TC","PMingLiU",serif;
     font-size:1.45rem;
     letter-spacing:.06em;
-    font-weight:700;
+    font-weight:600;
   }
   header .sub{
     font-size:.8rem;
@@ -74,7 +78,7 @@
     transition:background .15s;
   }
   nav button.active{
-    background:#f4f1ea;color:var(--navy);font-weight:700;
+    background:#f4f1ea;color:var(--navy);font-weight:600;
   }
   nav button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
   main{max-width:760px;margin:0 auto;padding:16px 12px 60px;}
@@ -87,8 +91,7 @@
     font-size:.78rem;color:var(--ink-soft);letter-spacing:.12em;
   }
   .day-head h2{
-    font-family:"Noto Serif TC","PMingLiU",serif;
-    font-size:1.3rem;margin-top:2px;
+    font-size:1.3rem;margin-top:2px;font-weight:600;
   }
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
   .chip{
@@ -102,30 +105,50 @@
     box-shadow:0 2px 10px rgba(22,51,63,.08);
     background:#dfe6e5;
   }
+  .map-bar{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:10px;margin:6px 4px 0;
+  }
   .map-hint{
     font-size:.7rem;color:var(--ink-soft);
-    margin:6px 4px 0;text-align:right;
+    margin:0;text-align:right;margin-left:auto;
   }
+  .show-all{
+    flex:0 0 auto;
+    font-family:inherit;font-size:.7rem;font-weight:600;
+    background:var(--navy);color:#fff;
+    border:none;border-radius:12px;
+    padding:4px 12px;cursor:pointer;
+  }
+  .show-all[hidden]{display:none;}
   .timeline{
     background:var(--card);
     border:1px solid var(--line);border-radius:14px;
     margin-top:14px;padding:18px 16px 18px 18px;
   }
-  .stop{display:flex;gap:12px;}
+  .stop{
+    display:flex;gap:12px;
+    padding:4px 8px;margin:0 -8px;
+    border-radius:10px;cursor:pointer;
+    transition:background .15s;
+  }
+  .stop:hover{background:#f1f5f4;}
+  .stop.focused{background:#e4eeec;}
+  .stop:focus-visible{outline:2px solid var(--navy);outline-offset:1px;}
   .stop .badge{
     flex:0 0 30px;height:30px;width:30px;
     background:var(--navy);color:#fff;
     border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    font-size:.8rem;font-weight:700;
+    font-size:.8rem;font-weight:600;
     margin-top:2px;
   }
   .stop .info{padding-bottom:4px;}
   .stop .time{
-    font-size:.78rem;font-weight:700;color:var(--ink);
+    font-size:.78rem;font-weight:600;color:var(--ink);
     letter-spacing:.05em;font-variant-numeric:tabular-nums;
   }
-  .stop .name{font-size:.95rem;font-weight:700;}
+  .stop .name{font-size:.95rem;font-weight:600;}
   .stop .desc{font-size:.8rem;color:var(--ink-soft);margin-top:1px;}
   .leg{
     display:flex;gap:12px;align-items:stretch;
@@ -145,7 +168,7 @@
     padding:6px 0;flex-wrap:wrap;
   }
   .leg .pill{
-    font-size:.72rem;font-weight:700;color:#fff;
+    font-size:.72rem;font-weight:600;color:#fff;
     background:var(--mode,#999);
     border-radius:12px;padding:2px 10px;
     white-space:nowrap;
@@ -167,7 +190,7 @@
     background:var(--navy);color:#fff;border-radius:13px;
     min-width:26px;height:26px;padding:0 6px;box-sizing:border-box;
     display:flex;align-items:center;justify-content:center;
-    font-size:12px;font-weight:700;border:2px solid #fff;
+    font-size:12px;font-weight:600;border:2px solid #fff;
     box-shadow:0 1px 4px rgba(0,0,0,.35);white-space:nowrap;
   }
   footer{
@@ -461,12 +484,15 @@ DAYS.forEach((day, i) => {
       <div class="chips">${day.chips.map(c=>`<span class="chip">${c}</span>`).join('')}</div>
     </div>
     <div class="mapbox" id="map-${day.id}"></div>
-    <div class="map-hint">步行／公車／計程車為真實路徑・可縮放・點編號看站名</div>
+    <div class="map-bar">
+      <button type="button" class="show-all" hidden>顯示全部路線</button>
+      <div class="map-hint">點下方站點只看那一段・再點一次取消</div>
+    </div>
     <div class="timeline">`;
 
   day.stops.forEach((s, j) => {
     html += `
-      <div class="stop">
+      <div class="stop" data-i="${j}" role="button" tabindex="0">
         <div class="badge">${j+1}</div>
         <div class="info">
           <div class="time">${s.t}</div>
@@ -497,6 +523,18 @@ DAYS.forEach((day, i) => {
   html += `</div>`;
   if (day.note) html += `<div class="daynote"><b>NOTE</b>${day.note}</div>`;
   sec.innerHTML = html;
+
+  /* 點某一站 → 地圖只留該站與下一站（含中間那段路線） */
+  sec.querySelectorAll('.stop').forEach(el => {
+    const j = Number(el.dataset.i);
+    const act = () => setFocus(i, focusState[i] === j ? null : j);
+    el.addEventListener('click', act);
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); }
+    });
+  });
+  sec.querySelector('.show-all').addEventListener('click', () => setFocus(i, null));
+
   daysEl.appendChild(sec);
 });
 
@@ -559,6 +597,56 @@ function queueRoute(mode, pts) {
   return job;
 }
 
+function stopIcon(idxs) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="stop-marker">${idxs.join('・')}</div>`,
+    iconSize: [26,26], iconAnchor: [13,13]
+  });
+}
+
+/* 每天目前聚焦在哪一站（null = 顯示全部） */
+const focusState = {};
+
+function setFocus(dayIdx, stopIdx) {
+  const day = DAYS[dayIdx];
+  const map = mapInit[day.id];
+  if (!map) return;
+  focusState[dayIdx] = stopIdx;
+
+  /* 標記編號是 1 起算。點最後一站時沒有下一段，就只留那一站。 */
+  const visible = stopIdx === null ? null
+    : new Set(stopIdx + 1 < day.stops.length ? [stopIdx + 1, stopIdx + 2] : [stopIdx + 1]);
+
+  const bounds = [];
+
+  map._markerRecs.forEach(rec => {
+    const shown = visible ? rec.idxs.filter(n => visible.has(n)) : rec.idxs;
+    if (!shown.length) { map.removeLayer(rec.marker); return; }
+    if (!map.hasLayer(rec.marker)) rec.marker.addTo(map);
+    rec.marker.setIcon(stopIcon(shown));   /* 合併標記只顯示還看得到的編號 */
+    bounds.push(rec.ll);
+  });
+
+  map._legLines.forEach((line, k) => {
+    if (visible === null || k === stopIdx) {
+      if (!map.hasLayer(line)) line.addTo(map);
+      line.getLatLngs().forEach(p => bounds.push([p.lat, p.lng]));
+    } else {
+      map.removeLayer(line);
+    }
+  });
+
+  const sec = document.getElementById(day.id);
+  sec.querySelectorAll('.stop').forEach(el => {
+    el.classList.toggle('focused', Number(el.dataset.i) === stopIdx);
+  });
+  sec.querySelector('.show-all').hidden = (stopIdx === null);
+
+  if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+  map._tripBounds = null;   /* 使用者已手動選段，別再自動回到全覽 */
+}
+
 function buildMap(day) {
   const map = L.map('map-' + day.id, { scrollWheelZoom: false });
   const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -592,16 +680,17 @@ function buildMap(day) {
     spots.get(key).items.push({ idx: j + 1, stop: s });
   });
 
+  /* 保留參照，之後才能依站點篩選顯示 */
+  map._markerRecs = [];
+  map._legLines = [];
+
   spots.forEach(spot => {
-    const label = spot.items.map(i => i.idx).join('・');
+    const idxs = spot.items.map(i => i.idx);
     const popup = spot.items.map(i => `<b>${i.stop.t}</b>　${i.idx}. ${i.stop.n}`).join('<br>');
-    L.marker(spot.ll, {
-      icon: L.divIcon({
-        className: '',
-        html: `<div class="stop-marker">${label}</div>`,
-        iconSize: [26,26], iconAnchor: [13,13]
-      })
+    const marker = L.marker(spot.ll, {
+      icon: stopIcon(idxs)
     }).addTo(map).bindPopup(popup);
+    map._markerRecs.push({ idxs, marker, ll: spot.ll });
   });
 
   day.legs.forEach((leg, j) => {
@@ -615,6 +704,7 @@ function buildMap(day) {
       opacity: .85,
       dashArray: m.dash || null
     }).addTo(map);
+    map._legLines.push(line);
     if (ROUTE_COSTING[leg.m]) {
       queueRoute(leg.m, pts)
         .then(real => { if (real && real.length > 1) line.setLatLngs(real); })
