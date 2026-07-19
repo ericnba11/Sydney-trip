@@ -216,6 +216,11 @@
     background:none;border:none;cursor:pointer;padding:2px 0;
   }
   .note-toggle:hover{color:var(--navy);}
+  .note-chevron{
+    display:inline-block;font-size:.85rem;line-height:1;
+    transition:transform .15s;
+  }
+  .note-toggle.expanded .note-chevron{transform:rotate(90deg);}
   .note-dot{
     width:6px;height:6px;border-radius:50%;background:var(--bus);
   }
@@ -225,6 +230,25 @@
     border-radius:12px;padding:10px 12px;
   }
   .note-panel[hidden]{display:none;}
+  .note-comment{
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;
+  }
+  .note-comment[hidden]{display:none;}
+  .note-comment-head{
+    display:flex;align-items:baseline;gap:8px;margin-bottom:4px;flex-wrap:wrap;
+  }
+  .note-comment-author{font-size:.78rem;font-weight:600;color:var(--ink);}
+  .note-comment-time{font-size:.68rem;color:var(--ink-soft);}
+  .note-comment-text{
+    font-size:.82rem;color:var(--ink);white-space:pre-wrap;word-break:break-word;
+  }
+  .note-edit-btn{
+    display:inline-block;margin-top:8px;
+    font-family:inherit;font-size:.7rem;font-weight:600;color:var(--bus);
+    background:none;border:none;cursor:pointer;padding:0;
+  }
+  .note-editor[hidden]{display:none;}
   .note-text{
     width:100%;min-height:60px;resize:vertical;
     font-family:inherit;font-size:.82rem;color:var(--ink);
@@ -315,9 +339,8 @@ const UI = {
     noteAuthorPlaceholder:'你的名字（選填）',
     noteSave:'儲存',
     noteSaving:'儲存中…',
-    noteUpdatedBy:(who,when)=>`${who?who+'・':''}最後更新 ${when}`,
     noteOffline:'尚未連接同步服務，這則備註只存在這台裝置（需要設定 Firebase）',
-    noteSynced:'已連上同步服務'
+    noteEdit:'編輯'
   },
   ja:{
     title:'シドニー旅行・毎日ルートマップ',
@@ -336,9 +359,8 @@ const UI = {
     noteAuthorPlaceholder:'お名前（任意）',
     noteSave:'保存',
     noteSaving:'保存中…',
-    noteUpdatedBy:(who,when)=>`${who?who+'・':''}最終更新 ${when}`,
     noteOffline:'同期サービス未接続、このメモはこの端末にのみ保存されます（Firebaseの設定が必要）',
-    noteSynced:'同期サービスに接続済み'
+    noteEdit:'編集'
   }
 };
 
@@ -392,19 +414,40 @@ function formatNoteTime(d) {
   return `${d.getMonth()+1}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/* 用 textContent 而不是 innerHTML：備註沒有登入機制，任何人都能寫，
+   避免有人貼 HTML/script 進來造成 stored XSS。 */
+function renderComment(block, entry) {
+  block.querySelector('.note-comment-author').textContent = (entry && entry.author) || '';
+  block.querySelector('.note-comment-time').textContent =
+    entry && entry.updatedAt ? formatNoteTime(new Date(entry.updatedAt)) : '';
+  block.querySelector('.note-comment-text').textContent = (entry && entry.text) || '';
+}
+
+function showCommentView(block) {
+  block.querySelector('.note-comment').hidden = false;
+  block.querySelector('.note-editor').hidden = true;
+}
+
+function showEditorView(block) {
+  const key = block.dataset.key;
+  const entry = notesCache[key];
+  block.querySelector('.note-comment').hidden = true;
+  block.querySelector('.note-editor').hidden = false;
+  block.querySelector('.note-text').value = (entry && entry.text) || '';
+  block.querySelector('.note-author').value =
+    localStorage.getItem('sydNoteAuthor') || (entry && entry.author) || '';
+  block.querySelector('.note-meta').textContent = notesDb ? '' : UI[LANG].noteOffline;
+}
+
 function refreshNoteBlock(block) {
   const key = block.dataset.key;
   const entry = notesCache[key];
-  const dot = block.querySelector('.note-dot');
-  dot.hidden = !(entry && entry.text);
+  block.querySelector('.note-dot').hidden = !(entry && entry.text);
   const panel = block.querySelector('.note-panel');
-  if (panel.hidden) return;   /* 面板關著就不動使用者可能正在編輯的內容 */
-  const meta = block.querySelector('.note-meta');
-  if (entry && entry.updatedAt) {
-    meta.textContent = UI[LANG].noteUpdatedBy(entry.author || '', formatNoteTime(new Date(entry.updatedAt)));
-  } else {
-    meta.textContent = '';
-  }
+  if (panel.hidden) return;
+  /* 讀取畫面隨時可以安全更新；編輯畫面可能正在打字，交給使用者自己按儲存，
+     絕不能被別人的同步更新蓋掉。 */
+  if (!block.querySelector('.note-comment').hidden) renderComment(block, entry);
 }
 
 function refreshAllVisibleNoteBlocks() {
@@ -414,6 +457,10 @@ function refreshAllVisibleNoteBlocks() {
 if (notesDb) {
   notesDb.collection('notes').onSnapshot(snap => {
     snap.docChanges().forEach(change => {
+      if (change.type === 'removed') {
+        delete notesCache[change.doc.id];
+        return;
+      }
       const d = change.doc.data();
       notesCache[change.doc.id] = {
         text: d.text || '',
@@ -427,13 +474,15 @@ if (notesDb) {
 
 function saveNote(key, text, author) {
   try { localStorage.setItem('sydNoteAuthor', author); } catch (e) {}
+  /* 先樂觀更新本機快取，畫面馬上反應；Firestore 回來的版本稍後
+     會用伺服器時間覆蓋過去，不影響顯示。 */
+  notesCache[key] = { text, author, updatedAt: Date.now() };
   if (notesDb) {
     notesDb.collection('notes').doc(key).set({
       text, author,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }).catch(() => {});
   } else {
-    notesCache[key] = { text, author, updatedAt: Date.now() };
     try { localStorage.setItem(NOTES_LOCAL_KEY, JSON.stringify(notesCache)); } catch (e) {}
   }
 }
@@ -442,31 +491,38 @@ function wireNoteBlock(block) {
   const key = block.dataset.key;
   const toggle = block.querySelector('.note-toggle');
   const panel = block.querySelector('.note-panel');
+  const editBtn = block.querySelector('.note-edit-btn');
+  const saveBtn = block.querySelector('.note-save');
   const textarea = block.querySelector('.note-text');
   const authorInput = block.querySelector('.note-author');
-  const saveBtn = block.querySelector('.note-save');
-  const meta = block.querySelector('.note-meta');
 
-  refreshNoteBlock(block);
+  refreshNoteBlock(block);   /* 面板預設關閉，這裡只會更新小圓點 */
 
   toggle.addEventListener('click', e => {
     e.stopPropagation();
     panel.hidden = !panel.hidden;
+    toggle.classList.toggle('expanded', !panel.hidden);
     if (!panel.hidden) {
       const entry = notesCache[key];
-      textarea.value = (entry && entry.text) || '';
-      authorInput.value = localStorage.getItem('sydNoteAuthor') || (entry && entry.author) || '';
-      if (!notesDb) meta.textContent = UI[LANG].noteOffline;
-      else refreshNoteBlock(block);
+      if (entry && entry.text) { showCommentView(block); renderComment(block, entry); }
+      else showEditorView(block);
     }
   });
   ['click', 'keydown', 'mousedown'].forEach(evt => {
     panel.addEventListener(evt, e => e.stopPropagation());
   });
+  editBtn.addEventListener('click', () => showEditorView(block));
   saveBtn.addEventListener('click', () => {
-    saveNote(key, textarea.value.trim(), authorInput.value.trim());
+    const text = textarea.value.trim();
+    const author = authorInput.value.trim();
+    saveNote(key, text, author);
     saveBtn.textContent = UI[LANG].noteSaving;
-    setTimeout(() => { saveBtn.textContent = UI[LANG].noteSave; refreshNoteBlock(block); }, 400);
+    setTimeout(() => {
+      saveBtn.textContent = UI[LANG].noteSave;
+      const entry = notesCache[key];
+      if (entry && entry.text) { showCommentView(block); renderComment(block, entry); }
+      refreshNoteBlock(block);
+    }, 300);
   });
 }
 
@@ -823,14 +879,24 @@ function buildAllDays() {
           </div>
         </div>
         <div class="note-block" data-key="${noteKey}">
-          <button type="button" class="note-toggle">${ui.noteToggle}<span class="note-dot" hidden></span></button>
+          <button type="button" class="note-toggle"><span class="note-chevron">›</span>${ui.noteToggle}<span class="note-dot" hidden></span></button>
           <div class="note-panel" hidden>
-            <textarea class="note-text" placeholder="${ui.notePlaceholder}"></textarea>
-            <div class="note-footer">
-              <input type="text" class="note-author" placeholder="${ui.noteAuthorPlaceholder}">
-              <button type="button" class="note-save">${ui.noteSave}</button>
+            <div class="note-comment" hidden>
+              <div class="note-comment-head">
+                <span class="note-comment-author"></span>
+                <span class="note-comment-time"></span>
+              </div>
+              <div class="note-comment-text"></div>
+              <button type="button" class="note-edit-btn">${ui.noteEdit}</button>
             </div>
-            <div class="note-meta"></div>
+            <div class="note-editor">
+              <textarea class="note-text" placeholder="${ui.notePlaceholder}"></textarea>
+              <div class="note-footer">
+                <input type="text" class="note-author" placeholder="${ui.noteAuthorPlaceholder}">
+                <button type="button" class="note-save">${ui.noteSave}</button>
+              </div>
+              <div class="note-meta"></div>
+            </div>
           </div>
         </div>`;
       if (j < day.legs.length) {
