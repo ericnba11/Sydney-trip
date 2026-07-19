@@ -172,22 +172,8 @@
     border-radius:10px;padding:1px 8px;
     vertical-align:middle;
   }
-  .stop .dur[hidden]{display:none;}
   .stop .name{font-size:.95rem;font-weight:600;}
   .stop .desc{font-size:.8rem;color:var(--ink-soft);margin-top:1px;}
-  .edit-field{
-    font-family:inherit;color:var(--ink);
-    border:1px solid var(--line);border-radius:8px;
-    background:#fff;padding:4px 8px;
-  }
-  input.edit-field.time-input{width:64px;font-size:.78rem;font-weight:600;
-    letter-spacing:.05em;font-variant-numeric:tabular-nums;}
-  input.edit-field.dur-input{width:140px;font-size:.7rem;margin-left:8px;}
-  input.edit-field.name-input{display:block;width:100%;font-size:.95rem;
-    font-weight:600;margin-top:4px;}
-  textarea.edit-field.desc-input{display:block;width:100%;min-height:44px;
-    resize:vertical;font-size:.8rem;margin-top:4px;}
-  input.edit-field.leg-input{width:100%;font-size:.78rem;}
   .leg{
     display:flex;gap:12px;align-items:stretch;
     min-height:44px;
@@ -267,7 +253,6 @@
   <div class="head-row">
     <h1 id="hTitle"></h1>
     <div class="head-btns">
-      <button type="button" class="lang-btn" id="editBtn"></button>
       <button type="button" class="lang-btn" id="langBtn"></button>
     </div>
   </div>
@@ -307,11 +292,7 @@ const UI = {
     docTitle:'雪梨之旅 2026・每日路線地圖',
     noteToggle:'備註',
     notePlaceholder:'在這裡自由寫備註，其他人也看得到…',
-    noteOffline:'尚未連接同步服務，這則備註只存在這台裝置（需要設定 Firebase）',
-    editModeOn:'編輯行程',
-    editModeOff:'完成編輯',
-    editDescPlaceholder:'說明（可留白）',
-    editDurPlaceholder:'停留時間，例如：約 1 小時'
+    noteOffline:'尚未連接同步服務，這則備註只存在這台裝置（需要設定 Firebase）'
   },
   ja:{
     title:'シドニー旅行・毎日ルートマップ',
@@ -327,11 +308,7 @@ const UI = {
     docTitle:'シドニー旅行 2026・毎日ルートマップ',
     noteToggle:'メモ',
     notePlaceholder:'ここに自由にメモを書けます、他の人にも見えます…',
-    noteOffline:'同期サービス未接続、このメモはこの端末にのみ保存されます（Firebaseの設定が必要）',
-    editModeOn:'行程を編集',
-    editModeOff:'編集を終了',
-    editDescPlaceholder:'説明（空欄可）',
-    editDurPlaceholder:'滞在時間、例：約1時間'
+    noteOffline:'同期サービス未接続、このメモはこの端末にのみ保存されます（Firebaseの設定が必要）'
   }
 };
 
@@ -412,69 +389,10 @@ function saveNote(key, text) {
   }
 }
 
-/* ---------- 網頁內建編輯模式 ----------
-   平常是唯讀畫面；按下「編輯」後，站點的時間／名稱／說明／停留
-   時間、以及路段說明都變成可以直接改的欄位，離開焦點就自動存檔。
-   誰改的不重要，所有人看到的都是同一份（跟備註共用 Firestore）。 */
-let EDIT_MODE = false;
-
-const editsCache = {};   /* key 見 fieldKey()，value = {value, updatedAt} */
-const EDITS_LOCAL_KEY = 'sydEditsLocal';
-try { Object.assign(editsCache, JSON.parse(localStorage.getItem(EDITS_LOCAL_KEY) || '{}')); } catch (e) {}
-
-/* 沒有登入機制、任何人都能寫，輸出前一定要跳脫，避免有人貼
+/* 沒有登入機制、任何人都能寫備註，輸出前一定要跳脫，避免有人貼
    HTML/script 進來造成 stored XSS。 */
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function fieldKey(dayId, kind, index, field, bilingual) {
-  return `${dayId}_${kind}${index}_${field}` + (bilingual ? '_' + LANG : '');
-}
-
-/* 有人編輯過就用編輯後的值，否則用行程原本寫死的值 */
-function resolveField(key, fallback) {
-  const ov = editsCache[key];
-  return (ov && ov.value != null && String(ov.value).trim() !== '') ? ov.value : fallback;
-}
-
-if (notesDb) {
-  notesDb.collection('edits').onSnapshot(snap => {
-    snap.docChanges().forEach(change => {
-      if (change.type === 'removed') { delete editsCache[change.doc.id]; return; }
-      const d = change.doc.data();
-      editsCache[change.doc.id] = {
-        value: d.value != null ? d.value : '',
-        updatedAt: d.updatedAt && d.updatedAt.toMillis ? d.updatedAt.toMillis() : Date.now()
-      };
-    });
-    refreshEditableFields();
-  }, () => {});
-}
-
-function saveEdit(key, value) {
-  editsCache[key] = { value, updatedAt: Date.now() };   /* 樂觀更新 */
-  if (notesDb) {
-    notesDb.collection('edits').doc(key).set({
-      value, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(() => {});
-  } else {
-    try { localStorage.setItem(EDITS_LOCAL_KEY, JSON.stringify(editsCache)); } catch (e) {}
-  }
-}
-
-function refreshEditableFields() {
-  document.querySelectorAll('[data-editkey]').forEach(el => {
-    if (el === document.activeElement) return;
-    const key = el.dataset.editkey;
-    if (el._defaultText === undefined) {
-      el._defaultText = ('value' in el) ? el.value : el.textContent;
-    }
-    const fallback = el.dataset.default || el._defaultText || '';
-    const value = resolveField(key, fallback);
-    if ('value' in el) el.value = value;
-    else el.textContent = value;
-  });
 }
 
 function wireNoteBlock(textarea) {
@@ -783,8 +701,6 @@ function applyStaticUI() {
   document.getElementById('hTitle').textContent = ui.title;
   document.getElementById('hSub').textContent = ui.sub;
   document.getElementById('langBtn').textContent = ui.langBtn;
-  document.getElementById('editBtn').textContent = EDIT_MODE ? ui.editModeOff : ui.editModeOn;
-  document.getElementById('editBtn').classList.toggle('active', EDIT_MODE);
   document.getElementById('hLegend').innerHTML = LEGEND_ORDER.map(k => {
     const m = MODES[k];
     const cls = m.cls ? ' ' + m.cls : '';
@@ -824,40 +740,17 @@ function buildAllDays() {
       <div class="timeline">`;
 
     day.stops.forEach((s, j) => {
-      const timeKey = fieldKey(day.id, 'stop', j, 't', false);
-      const nameKey = fieldKey(day.id, 'stop', j, 'n', true);
-      const descKey = fieldKey(day.id, 'stop', j, 'd', true);
-      const durKey  = fieldKey(day.id, 'stop', j, 'dur', true);
-      const timeVal = resolveField(timeKey, s.t);
-      const nameVal = resolveField(nameKey, t(s.n));
-      const descVal = resolveField(descKey, t(s.d));
-      const durVal  = resolveField(durKey, s.dur ? t(s.dur) : '');
+      const dur = s.dur ? `<span class="dur">${t(s.dur)}</span>` : '';
       const noteKey = day.id + '_' + j;
-
-      if (EDIT_MODE) {
-        html += `
-        <div class="stop" data-i="${j}">
-          <div class="badge">${j+1}</div>
-          <div class="info">
-            <div class="time-row">
-              <input type="text" class="edit-field time-input" data-editkey="${timeKey}" value="${escapeHtml(timeVal)}">
-              <input type="text" class="edit-field dur-input" data-editkey="${durKey}" value="${escapeHtml(durVal)}" placeholder="${ui.editDurPlaceholder}">
-            </div>
-            <input type="text" class="edit-field name-input" data-editkey="${nameKey}" value="${escapeHtml(nameVal)}">
-            <textarea class="edit-field desc-input" data-editkey="${descKey}" placeholder="${ui.editDescPlaceholder}">${escapeHtml(descVal)}</textarea>
-          </div>
-        </div>`;
-      } else {
-        html += `
+      html += `
         <div class="stop" data-i="${j}" role="button" tabindex="0">
           <div class="badge">${j+1}</div>
           <div class="info">
-            <div class="time-row"><span class="time" data-editkey="${timeKey}" data-default="${escapeHtml(s.t)}">${escapeHtml(timeVal)}</span><span class="dur" data-editkey="${durKey}" data-default="${escapeHtml(s.dur ? t(s.dur) : '')}" data-hideable ${durVal ? '' : 'hidden'}>${escapeHtml(durVal)}</span></div>
-            <div class="name" data-editkey="${nameKey}" data-default="${escapeHtml(t(s.n))}">${escapeHtml(nameVal)}</div>
-            <div class="desc" data-editkey="${descKey}" data-default="${escapeHtml(t(s.d))}" data-hideable ${descVal ? '' : 'hidden'}>${escapeHtml(descVal)}</div>
+            <div class="time-row"><span class="time">${s.t}</span>${dur}</div>
+            <div class="name">${t(s.n)}</div>
+            ${t(s.d) ? `<div class="desc">${t(s.d)}</div>` : ''}
           </div>
         </div>`;
-      }
 
       const noteVal = (notesCache[noteKey] && notesCache[noteKey].text) || '';
       html += `
@@ -870,21 +763,16 @@ function buildAllDays() {
         const leg = day.legs[j];
         const m = MODES[leg.m];
         const o = day.stops[j], dst = day.stops[j+1];
-        const legKey = fieldKey(day.id, 'leg', j, 'l', true);
-        const legVal = resolveField(legKey, t(leg.l));
         const navLink = m.gm
           ? `<a class="nav" target="_blank" rel="noopener"
                href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(o.q)}&destination=${encodeURIComponent(dst.q)}&travelmode=${m.gm}">${ui.navBtn}</a>`
           : '';
-        const labelHtml = EDIT_MODE
-          ? `<input type="text" class="edit-field leg-input" data-editkey="${legKey}" data-default="${escapeHtml(t(leg.l))}" value="${escapeHtml(legVal)}">`
-          : `<span class="lbl" data-editkey="${legKey}" data-default="${escapeHtml(t(leg.l))}">${escapeHtml(legVal)}</span>`;
         html += `
         <div class="leg ${m.cls}" style="--mode:${m.css}">
           <div class="track"><i></i></div>
           <div class="how">
-            <span class="pill">${escapeHtml(t(m.label))}</span>
-            ${labelHtml}
+            <span class="pill">${t(m.label)}</span>
+            <span class="lbl">${t(leg.l)}</span>
             ${navLink}
           </div>
         </div>`;
@@ -895,22 +783,15 @@ function buildAllDays() {
     if (day.note) html += `<div class="daynote"><b>${ui.note}</b>${t(day.note)}</div>`;
     sec.innerHTML = html;
 
-    if (EDIT_MODE) {
-      /* 編輯模式下站點是輸入欄位，不做地圖聚焦；離開焦點就存檔 */
-      sec.querySelectorAll('.edit-field').forEach(el => {
-        el.addEventListener('blur', () => saveEdit(el.dataset.editkey, el.value));
+    /* 點某一站 → 地圖只留該站與下一站（含中間那段路線） */
+    sec.querySelectorAll('.stop').forEach(el => {
+      const j = Number(el.dataset.i);
+      const act = () => setFocus(i, focusState[i] === j ? null : j);
+      el.addEventListener('click', act);
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); }
       });
-    } else {
-      /* 點某一站 → 地圖只留該站與下一站（含中間那段路線） */
-      sec.querySelectorAll('.stop').forEach(el => {
-        const j = Number(el.dataset.i);
-        const act = () => setFocus(i, focusState[i] === j ? null : j);
-        el.addEventListener('click', act);
-        el.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); }
-        });
-      });
-    }
+    });
     sec.querySelector('.show-all').addEventListener('click', () => setFocus(i, null));
 
     sec.querySelectorAll('.note-text').forEach(wireNoteBlock);
@@ -922,17 +803,6 @@ function buildAllDays() {
 document.getElementById('langBtn').addEventListener('click', () => {
   LANG = LANG === 'zh' ? 'ja' : 'zh';
   localStorage.setItem('sydLang', LANG);
-  Object.keys(mapInit).forEach(k => { mapInit[k].remove(); delete mapInit[k]; });
-  Object.keys(focusState).forEach(k => delete focusState[k]);
-  applyStaticUI();
-  buildAllDays();
-  showDay(currentDay);
-});
-
-document.getElementById('editBtn').addEventListener('click', () => {
-  EDIT_MODE = !EDIT_MODE;
-  /* buildAllDays() 會整個重建 DOM（含地圖容器），舊的 Leaflet 地圖物件
-     會變成孤兒，一定要清掉讓它重新建立，否則地圖會變空白。 */
   Object.keys(mapInit).forEach(k => { mapInit[k].remove(); delete mapInit[k]; });
   Object.keys(focusState).forEach(k => delete focusState[k]);
   applyStaticUI();
