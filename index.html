@@ -56,6 +56,7 @@
     margin-top:4px;
     letter-spacing:.04em;
   }
+  .head-btns{display:flex;gap:8px;flex:0 0 auto;}
   .lang-btn{
     flex:0 0 auto;margin-top:2px;
     background:rgba(255,255,255,.14);color:#f4f1ea;
@@ -65,6 +66,7 @@
   }
   .lang-btn:hover{background:rgba(255,255,255,.24);}
   .lang-btn:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+  .lang-btn.active{background:#f4f1ea;color:var(--navy);border-color:#f4f1ea;}
   .legend{
     display:flex;flex-wrap:wrap;gap:8px 14px;
     margin-top:14px;font-size:.72rem;
@@ -157,7 +159,7 @@
     font-size:.8rem;font-weight:600;
     margin-top:2px;
   }
-  .stop .info{padding-bottom:4px;}
+  .stop .info{padding-bottom:4px;flex:1;min-width:0;}
   .stop .time-row{display:flex;align-items:center;flex-wrap:wrap;gap:0;}
   .stop .time{
     font-size:.78rem;font-weight:600;color:var(--ink);
@@ -170,8 +172,22 @@
     border-radius:10px;padding:1px 8px;
     vertical-align:middle;
   }
+  .stop .dur[hidden]{display:none;}
   .stop .name{font-size:.95rem;font-weight:600;}
   .stop .desc{font-size:.8rem;color:var(--ink-soft);margin-top:1px;}
+  .edit-field{
+    font-family:inherit;color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;
+    background:#fff;padding:4px 8px;
+  }
+  input.edit-field.time-input{width:64px;font-size:.78rem;font-weight:600;
+    letter-spacing:.05em;font-variant-numeric:tabular-nums;}
+  input.edit-field.dur-input{width:140px;font-size:.7rem;margin-left:8px;}
+  input.edit-field.name-input{display:block;width:100%;font-size:.95rem;
+    font-weight:600;margin-top:4px;}
+  textarea.edit-field.desc-input{display:block;width:100%;min-height:44px;
+    resize:vertical;font-size:.8rem;margin-top:4px;}
+  input.edit-field.leg-input{width:100%;font-size:.78rem;}
   .leg{
     display:flex;gap:12px;align-items:stretch;
     min-height:44px;
@@ -298,7 +314,10 @@
 <header>
   <div class="head-row">
     <h1 id="hTitle"></h1>
-    <button type="button" class="lang-btn" id="langBtn"></button>
+    <div class="head-btns">
+      <button type="button" class="lang-btn" id="editBtn"></button>
+      <button type="button" class="lang-btn" id="langBtn"></button>
+    </div>
   </div>
   <div class="sub" id="hSub"></div>
   <div class="legend" id="hLegend"></div>
@@ -340,7 +359,11 @@ const UI = {
     noteSave:'儲存',
     noteSaving:'儲存中…',
     noteOffline:'尚未連接同步服務，這則備註只存在這台裝置（需要設定 Firebase）',
-    noteEdit:'編輯'
+    noteEdit:'編輯',
+    editModeOn:'編輯行程',
+    editModeOff:'完成編輯',
+    editDescPlaceholder:'說明（可留白）',
+    editDurPlaceholder:'停留時間，例如：約 1 小時'
   },
   ja:{
     title:'シドニー旅行・毎日ルートマップ',
@@ -360,7 +383,11 @@ const UI = {
     noteSave:'保存',
     noteSaving:'保存中…',
     noteOffline:'同期サービス未接続、このメモはこの端末にのみ保存されます（Firebaseの設定が必要）',
-    noteEdit:'編集'
+    noteEdit:'編集',
+    editModeOn:'行程を編集',
+    editModeOff:'編集を終了',
+    editDescPlaceholder:'説明（空欄可）',
+    editDurPlaceholder:'滞在時間、例：約1時間'
   }
 };
 
@@ -487,6 +514,68 @@ function saveNote(key, text, author) {
   }
 }
 
+/* ---------- 網頁內建編輯模式 ----------
+   平常是唯讀畫面；按下「編輯」後，站點的時間／名稱／說明／停留
+   時間、以及路段說明都變成可以直接改的欄位，離開焦點就自動存檔。
+   誰改的不重要，所有人看到的都是同一份（跟備註共用 Firestore）。 */
+let EDIT_MODE = false;
+
+const editsCache = {};   /* key 見 fieldKey()，value = {value, updatedAt} */
+const EDITS_LOCAL_KEY = 'sydEditsLocal';
+try { Object.assign(editsCache, JSON.parse(localStorage.getItem(EDITS_LOCAL_KEY) || '{}')); } catch (e) {}
+
+/* 沒有登入機制、任何人都能寫，輸出前一定要跳脫，避免有人貼
+   HTML/script 進來造成 stored XSS。 */
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fieldKey(dayId, kind, index, field, bilingual) {
+  return `${dayId}_${kind}${index}_${field}` + (bilingual ? '_' + LANG : '');
+}
+
+/* 有人編輯過就用編輯後的值，否則用行程原本寫死的值 */
+function resolveField(key, fallback) {
+  const ov = editsCache[key];
+  return (ov && ov.value != null) ? ov.value : fallback;
+}
+
+if (notesDb) {
+  notesDb.collection('edits').onSnapshot(snap => {
+    snap.docChanges().forEach(change => {
+      if (change.type === 'removed') { delete editsCache[change.doc.id]; return; }
+      const d = change.doc.data();
+      editsCache[change.doc.id] = {
+        value: d.value != null ? d.value : '',
+        updatedAt: d.updatedAt && d.updatedAt.toMillis ? d.updatedAt.toMillis() : Date.now()
+      };
+    });
+    refreshEditableFields();
+  }, () => {});
+}
+
+function saveEdit(key, value) {
+  editsCache[key] = { value, updatedAt: Date.now() };   /* 樂觀更新 */
+  if (notesDb) {
+    notesDb.collection('edits').doc(key).set({
+      value, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+  } else {
+    try { localStorage.setItem(EDITS_LOCAL_KEY, JSON.stringify(editsCache)); } catch (e) {}
+  }
+}
+
+/* 別人同步過來的更新：正在打字的欄位不要蓋掉，其餘直接更新畫面 */
+function refreshEditableFields() {
+  document.querySelectorAll('[data-editkey]').forEach(el => {
+    if (el === document.activeElement) return;
+    const key = el.dataset.editkey;
+    const value = resolveField(key, el.dataset.default || '');
+    if ('value' in el) el.value = value;
+    else el.textContent = value;
+  });
+}
+
 function wireNoteBlock(block) {
   const key = block.dataset.key;
   const toggle = block.querySelector('.note-toggle');
@@ -610,13 +699,13 @@ const DAYS = [
     {t:'08:30', n:{zh:'住處出發',ja:'宿を出発'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
     {t:'09:15', n:{zh:'雪梨歌劇院',ja:'シドニー・オペラハウス'}, d:{zh:'沿岸環繞拍照，接著參加官方導覽入內參觀（比照博物館排時間，需提前 15 分報到）',ja:'外周を歩きながら撮影、その後は公式ガイドツアーで内部を見学（博物館並みの見学時間を確保、集合は開始15分前）'}, dur:{zh:'約 1 小時 40 分',ja:'約1時間40分'}, ll:[-33.8568,151.2153], q:'Sydney Opera House'},
     {t:'11:05', n:{zh:'皇家植物園',ja:'ロイヤル植物園'}, d:{zh:'免費入園，沿海灣步道穿越；園內有咖啡座可歇腿',ja:'入園無料、湾沿いの遊歩道を通り抜ける；園内のカフェで休憩も'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.8642,151.2166], q:'Royal Botanic Garden Sydney'},
-    {t:'12:20', n:{zh:'麥奎里夫人石椅',ja:'ミセス・マッコーリーズ・チェア'}, d:{zh:'歌劇院＋大橋同框招牌機位',ja:'オペラハウスと橋が一緒に収まる定番の撮影スポット'}, dur:{zh:'約 30 分',ja:'約30分'}, ll:[-33.8587,151.2222], q:'Mrs Macquaries Chair'},
-    {t:'13:05', n:{zh:"Harry's Café de Wheels",ja:'ハリーズ・カフェ・デ・ホイールズ'}, d:{zh:'午餐：招牌 Tiger 肉派',ja:'昼食：名物のタイガーミートパイ'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8695,151.2226], q:"Harry's Cafe de Wheels Woolloomooloo"},
-    {t:'14:10', n:{zh:'聖母主教座堂',ja:'聖メアリー大聖堂'}, d:{zh:'進去看彩繪玻璃，免費',ja:'中に入ってステンドグラスを見学、無料'}, dur:{zh:'約 20 分',ja:'約20分'}, ll:[-33.8712,151.2133], q:'St Marys Cathedral Sydney'},
-    {t:'14:35', n:{zh:'海德公園',ja:'ハイドパーク'}, d:{zh:'亞奇伯噴泉、無花果樹林蔭道；走了一天在這裡坐著喘口氣',ja:'アーチボルド噴水、イチジク並木の遊歩道；一日歩いた後はここで一息'}, dur:{zh:'約 30 分',ja:'約30分'}, ll:[-33.8731,151.2114], q:'Hyde Park Sydney'},
-    {t:'15:15', n:{zh:'維多利亞女王大廈 QVB',ja:'クイーン・ビクトリア・ビルディング（QVB）'}, d:{zh:'百貨公司，四層樓精品店＋彩繪玻璃大鐘；對面就是市政廳外觀',ja:'百貨店、4フロアのブティック＋ステンドグラスと大時計；向かいの市庁舎の外観も'}, dur:{zh:'約 2 小時',ja:'約2時間'}, ll:[-33.8718,151.2067], q:'Queen Victoria Building'},
-    {t:'17:25', n:{zh:"Bar Totti's 晚餐",ja:'Bar Totti’sで夕食'}, d:{zh:'義大利菜，George St 近 Wynyard，可先訂位',ja:'イタリアン、George St・Wynyard駅近く、事前予約がおすすめ'}, dur:{zh:'約 1 小時 20 分',ja:'約1時間20分'}, ll:[-33.8659,151.2073], q:"Bar Totti's Sydney"},
-    {t:'19:15', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+    {t:'12:20', n:{zh:'麥奎里夫人石椅',ja:'ミセス・マッコーリーズ・チェア'}, d:{zh:'歌劇院＋大橋同框招牌機位，不用趕著走，多坐一下',ja:'オペラハウスと橋が一緒に収まる定番の撮影スポット、急がずゆっくり座って過ごす'}, dur:{zh:'約 35 分',ja:'約35分'}, ll:[-33.8587,151.2222], q:'Mrs Macquaries Chair'},
+    {t:'13:10', n:{zh:"Harry's Café de Wheels",ja:'ハリーズ・カフェ・デ・ホイールズ'}, d:{zh:'午餐：招牌 Tiger 肉派',ja:'昼食：名物のタイガーミートパイ'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8695,151.2226], q:"Harry's Cafe de Wheels Woolloomooloo"},
+    {t:'14:15', n:{zh:'聖母主教座堂',ja:'聖メアリー大聖堂'}, d:{zh:'進去看彩繪玻璃，免費',ja:'中に入ってステンドグラスを見学、無料'}, dur:{zh:'約 25 分',ja:'約25分'}, ll:[-33.8712,151.2133], q:'St Marys Cathedral Sydney'},
+    {t:'14:45', n:{zh:'海德公園',ja:'ハイドパーク'}, d:{zh:'亞奇伯噴泉、無花果樹林蔭道；走了一天在這裡坐著喘口氣，不用急',ja:'アーチボルド噴水、イチジク並木の遊歩道；一日歩いた後はここで一息、急がなくて良い'}, dur:{zh:'約 40 分',ja:'約40分'}, ll:[-33.8731,151.2114], q:'Hyde Park Sydney'},
+    {t:'15:35', n:{zh:'維多利亞女王大廈 QVB',ja:'クイーン・ビクトリア・ビルディング（QVB）'}, d:{zh:'百貨公司，四層樓精品店＋彩繪玻璃大鐘；對面就是市政廳外觀',ja:'百貨店、4フロアのブティック＋ステンドグラスと大時計；向かいの市庁舎の外観も'}, dur:{zh:'約 2 小時',ja:'約2時間'}, ll:[-33.8718,151.2067], q:'Queen Victoria Building'},
+    {t:'17:45', n:{zh:"Bar Totti's 晚餐",ja:'Bar Totti’sで夕食'}, d:{zh:'義大利菜，George St 近 Wynyard，可先訂位',ja:'イタリアン、George St・Wynyard駅近く、事前予約がおすすめ'}, dur:{zh:'約 1 小時 20 分',ja:'約1時間20分'}, ll:[-33.8659,151.2073], q:"Bar Totti's Sydney"},
+    {t:'19:45', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
     {m:'bus', l:{zh:'343 公車門口上車 → Circular Quay，下車走 5 分到歌劇院，約 45 分',ja:'343系統バスに自宅前から乗車 → Circular Quayで下車、徒歩5分でオペラハウスへ、計約45分'}, via:BUS343_IN},
@@ -630,8 +719,8 @@ const DAYS = [
     {m:'bus', l:{zh:'343 公車 Circular Quay → 住處門口，約 40 分',ja:'343系統バスでCircular Quay → 自宅前まで約40分'}, via:BUS343_OUT}
   ],
   note:{
-    zh:'QVB 其實是百貨公司（四層樓精品與紀念品店），會花不少時間逛，所以拿掉了原本排在這天的美術館（跟澳洲博物館二選一，兩間博物館性質太像，留 8/27 那間），把省下的時間給 QVB，變成完整 2 小時購物。歌劇院這天要進去參觀，時間拉到約 1 小時 40 分（含報到與導覽）。週一教堂人少。',
-    ja:'QVBは実は百貨店（4フロアのブティックとお土産店）で、かなり時間をかけて見て回ることになるため、この日にあった美術館を削除（オーストラリア博物館とどちらか一つを選ぶ形にし、雰囲気が似ている美術館を外して8/27側を残した）、浮いた時間をQVBに回して2時間の本格的なショッピングに。オペラハウスはこの日実際に内部を見学するため、集合・ツアー込みで約1時間40分を確保。月曜は教会も空いている。'
+    zh:'QVB 其實是百貨公司（四層樓精品與紀念品店），會花不少時間逛，時間拉到完整 2 小時購物。歌劇院這天要進去參觀，時間拉到約 1 小時 40 分（含報到與導覽）。下午幾站（石椅、教堂、海德公園）都刻意留了餘裕，不用趕著走。週一教堂人少。',
+    ja:'QVBは実は百貨店（4フロアのブティックとお土産店）で、かなり時間をかけて見て回ることになるため、2時間の本格的なショッピングに。オペラハウスはこの日実際に内部を見学するため、集合・ツアー込みで約1時間40分を確保。午後のスポット（チェア、大聖堂、ハイドパーク）はあえて余裕を持たせているので、急がず過ごせる。月曜は教会も空いている。'
   }
 },
 {
@@ -700,10 +789,10 @@ const DAYS = [
 },
 {
   id:'d5', iso:'2026-08-27',
-  title:{zh:'DFO Outlet・公園透氣・週四購物夜', ja:'DFOアウトレット・公園で一息・木曜ナイトショッピング'},
+  title:{zh:'DFO Outlet・美術館・週四購物夜', ja:'DFOアウトレット・美術館・木曜ナイトショッピング'},
   chips:[
     {zh:'雪梨僅週四商店開到 21:00', ja:'シドニーは木曜のみ21:00まで営業'},
-    {zh:'DFO 後到公園走走，不是逛第二個博物館', ja:'DFOの後は公園を散策、2つ目の館内施設ではない'},
+    {zh:'DFO 後到公園走走，午後排美術館', ja:'DFOの後は公園を散策、午後は美術館'},
     {zh:'早餐 Bourke St Bakery（可選）', ja:'朝食はBourke St Bakery（任意）'}
   ],
   stops:[
@@ -711,19 +800,21 @@ const DAYS = [
     {t:'08:50', n:{zh:'Bourke St Bakery 總店（可選）',ja:'Bourke St Bakery 本店（任意）'}, d:{zh:'Surry Hills 早餐：牛肉派、酸種可頌',ja:'Surry Hillsで朝食：ビーフパイ、サワードウクロワッサン'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8890,151.2117], q:'Bourke Street Bakery Surry Hills'},
     {t:'10:20', n:{zh:'DFO Homebush',ja:'DFOホームブッシュ'}, d:{zh:'Outlet 掃貨，美食街午餐；買齊就走，別耗到閉店',ja:'アウトレットで買い物、フードコートで昼食；買い終えたら切り上げる'}, dur:{zh:'約 2 小時 40 分',ja:'約2時間40分'}, ll:[-33.8623,151.0810], q:'DFO Homebush'},
     {t:'13:15', n:{zh:'Bicentennial Park',ja:'ビセンテニアル・パーク'}, d:{zh:'DFO 隔壁的濕地公園，木棧道＋觀景塔，走走透氣、跟血拚完全不同步調',ja:'DFOのすぐ隣にある湿地公園、木道と展望タワーで一息；ショッピングとは全く違うペースで過ごせる'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8469,151.0693], q:'Bicentennial Park Sydney Olympic Park'},
-    {t:'15:00', n:{zh:'Pitt St Mall 購物夜',ja:'Pitt St Mallでナイトショッピング'}, d:{zh:'週四營業至 21:00，晚餐周邊解決；QVB 已改排到 8/24，不跟這天擠',ja:'木曜は21:00まで営業、夕食も周辺で；QVBは8/24に移したのでこの日とは重ならない'}, dur:{zh:'約 2.5 小時',ja:'約2時間30分'}, ll:[-33.8703,151.2087], q:'Pitt Street Mall Sydney'},
-    {t:'18:15', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+    {t:'14:45', n:{zh:'新南威爾斯美術館',ja:'ニューサウスウェールズ州立美術館'}, d:{zh:'免費；本館看澳洲與原住民藝術，新館 Naala Badu 看當代展，逛完街換個腦袋',ja:'入場無料；本館でオーストラリア・先住民アート、新館Naala Baduで現代美術、買い物の後の気分転換に'}, dur:{zh:'約 1.5 小時',ja:'約1時間30分'}, ll:[-33.8688,151.2173], q:'Art Gallery of New South Wales'},
+    {t:'16:30', n:{zh:'Pitt St Mall 購物夜',ja:'Pitt St Mallでナイトショッピング'}, d:{zh:'週四營業至 21:00，晚餐周邊解決；QVB 已改排到 8/24，不跟這天擠',ja:'木曜は21:00まで営業、夕食も周辺で；QVBは8/24に移したのでこの日とは重ならない'}, dur:{zh:'約 2 小時',ja:'約2時間'}, ll:[-33.8703,151.2087], q:'Pitt Street Mall Sydney'},
+    {t:'19:15', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
     {m:'bus', l:{zh:'343 公車 Rothschild Ave 上車，Elizabeth St 下車走 15 分，約 26 分・每 10 分一班',ja:'343系統バスにRothschild Aveから乗車、Elizabeth Stで降りて徒歩15分、約26分・10分間隔'}, via:[B343_JOY,B343_ELIZ]},
     {m:'train', l:{zh:'步行回 Central → Strathfield → 步行 15 分',ja:'Centralまで歩いて戻り → Strathfieldへ → 徒歩15分'}, via:[CEN,STR]},
     {m:'walk', l:{zh:'步行約 15 分，就在 DFO 隔壁',ja:'徒歩約15分、DFOのすぐ隣'}},
-    {m:'train', l:{zh:'步行回 Sydney Olympic Park 站 → 火車經 Strathfield 到市區，約 40 分',ja:'Sydney Olympic Park駅まで歩いて戻り → 電車でStrathfield経由シティへ、約40分'}, via:[STR,CEN]},
+    {m:'train', l:{zh:'步行回 Sydney Olympic Park 站 → 火車經 Strathfield 到 Museum 站，約 40 分',ja:'Sydney Olympic Park駅まで歩いて戻り → 電車でStrathfield経由Museum駅へ、約40分'}, via:[STR,CEN]},
+    {m:'walk', l:{zh:'穿越海德公園步行約 15 分',ja:'ハイドパークを抜けて徒歩約15分'}},
     {m:'bus', l:{zh:'走到 Elizabeth St 搭 343 → 住處門口，約 40 分',ja:'Elizabeth Stまで歩いて343系統バスに乗車 → 自宅前まで約40分'}, via:BUS343_OUT}
   ],
   note:{
-    zh:'原本這天中間排了澳洲博物館打斷購物，但博物館跟逛街本質上都是「一直走一直看」，換不了節奏；博物館已改排到別處，這天中間換成 Bicentennial Park——濕地公園、有觀景塔，而且就在 DFO 隔壁，不用額外交通，真正讓腳和腦袋歇一下。省下的博物館時間回饋給 Pitt St Mall，購物時間拉到 2.5 小時。第一段從住處直接搭 343 公車（Google 地圖實測約 26 分、每 10 分一班），比原本繞去 Green Square 轉火車快。不吃可選早餐就直接 Central 轉 Strathfield，DFO 十點開門。行李箱空間先預留，戰利品今天集中買齊。',
-    ja:'元々この日は間にオーストラリア博物館を挟んで買い物を分断していたが、博物館も買い物も本質的に「歩き回って見る」点で似ており、気分転換にならない；博物館は別の日へ移し、この日の中休みはBicentennial Parkに変更——湿地公園と展望タワーがあり、しかもDFOのすぐ隣で追加の移動が不要、足と頭を本当に休められる。浮いた博物館の時間はPitt St Mallに還元し、ショッピング時間を2時間30分に拡大。最初の区間は自宅から343系統バスに直接乗車（Googleマップ実測で約26分・10分間隔）、元のGreen Square経由の電車より速い。朝食を省く場合はそのままCentralからStrathfieldへ、DFOは10時開店。スーツケースのスペースを空けておき、お土産はこの日にまとめて購入。'
+    zh:'新南威爾斯美術館排回這天下午——從 Bicentennial Park 搭火車回市區時順路到 Museum 站，走 15 分穿過海德公園就到 Pitt St Mall，不用額外繞路。DFO 後到 Bicentennial Park（濕地公園＋觀景塔，就在隔壁不用額外交通）走走透氣，跟美術館、購物完全是三種不同步調，不會逛到膩。第一段從住處直接搭 343 公車（Google 地圖實測約 26 分、每 10 分一班）。不吃可選早餐就直接 Central 轉 Strathfield，DFO 十點開門。行李箱空間先預留，戰利品今天集中買齊。',
+    ja:'ニューサウスウェールズ州立美術館をこの日の午後に戻した——Bicentennial Parkから電車でシティへ戻る際にMuseum駅で降りれば、ハイドパークを15分歩くだけでPitt St Mallに着き、余計な遠回りがない。DFOの後はBicentennial Park（湿地公園＋展望タワー、隣接していて追加の移動不要）で一息、美術館・買い物と合わせて3つの違うペースで過ごせるので飽きない。最初の区間は自宅から343系統バスに直接乗車（Googleマップ実測で約26分・10分間隔）。朝食を省く場合はそのままCentralからStrathfieldへ、DFOは10時開店。スーツケースのスペースを空けておき、お土産はこの日にまとめて購入。'
   }
 },
 {
@@ -828,6 +919,8 @@ function applyStaticUI() {
   document.getElementById('hTitle').textContent = ui.title;
   document.getElementById('hSub').textContent = ui.sub;
   document.getElementById('langBtn').textContent = ui.langBtn;
+  document.getElementById('editBtn').textContent = EDIT_MODE ? ui.editModeOff : ui.editModeOn;
+  document.getElementById('editBtn').classList.toggle('active', EDIT_MODE);
   document.getElementById('hLegend').innerHTML = LEGEND_ORDER.map(k => {
     const m = MODES[k];
     const cls = m.cls ? ' ' + m.cls : '';
@@ -867,17 +960,42 @@ function buildAllDays() {
       <div class="timeline">`;
 
     day.stops.forEach((s, j) => {
-      const dur = s.dur ? `<span class="dur">${t(s.dur)}</span>` : '';
+      const timeKey = fieldKey(day.id, 'stop', j, 't', false);
+      const nameKey = fieldKey(day.id, 'stop', j, 'n', true);
+      const descKey = fieldKey(day.id, 'stop', j, 'd', true);
+      const durKey  = fieldKey(day.id, 'stop', j, 'dur', true);
+      const timeVal = resolveField(timeKey, s.t);
+      const nameVal = resolveField(nameKey, t(s.n));
+      const descVal = resolveField(descKey, t(s.d));
+      const durVal  = resolveField(durKey, s.dur ? t(s.dur) : '');
       const noteKey = day.id + '_' + j;
-      html += `
+
+      if (EDIT_MODE) {
+        html += `
+        <div class="stop" data-i="${j}">
+          <div class="badge">${j+1}</div>
+          <div class="info">
+            <div class="time-row">
+              <input type="text" class="edit-field time-input" data-editkey="${timeKey}" value="${escapeHtml(timeVal)}">
+              <input type="text" class="edit-field dur-input" data-editkey="${durKey}" value="${escapeHtml(durVal)}" placeholder="${ui.editDurPlaceholder}">
+            </div>
+            <input type="text" class="edit-field name-input" data-editkey="${nameKey}" value="${escapeHtml(nameVal)}">
+            <textarea class="edit-field desc-input" data-editkey="${descKey}" placeholder="${ui.editDescPlaceholder}">${escapeHtml(descVal)}</textarea>
+          </div>
+        </div>`;
+      } else {
+        html += `
         <div class="stop" data-i="${j}" role="button" tabindex="0">
           <div class="badge">${j+1}</div>
           <div class="info">
-            <div class="time-row"><span class="time">${s.t}</span>${dur}</div>
-            <div class="name">${t(s.n)}</div>
-            ${t(s.d) ? `<div class="desc">${t(s.d)}</div>` : ''}
+            <div class="time-row"><span class="time" data-editkey="${timeKey}">${escapeHtml(timeVal)}</span><span class="dur" data-editkey="${durKey}" data-hideable ${durVal ? '' : 'hidden'}>${escapeHtml(durVal)}</span></div>
+            <div class="name" data-editkey="${nameKey}">${escapeHtml(nameVal)}</div>
+            <div class="desc" data-editkey="${descKey}" data-hideable ${descVal ? '' : 'hidden'}>${escapeHtml(descVal)}</div>
           </div>
-        </div>
+        </div>`;
+      }
+
+      html += `
         <div class="note-block" data-key="${noteKey}">
           <button type="button" class="note-toggle"><span class="note-chevron">›</span>${ui.noteToggle}<span class="note-dot" hidden></span></button>
           <div class="note-panel" hidden>
@@ -903,16 +1021,21 @@ function buildAllDays() {
         const leg = day.legs[j];
         const m = MODES[leg.m];
         const o = day.stops[j], dst = day.stops[j+1];
+        const legKey = fieldKey(day.id, 'leg', j, 'l', true);
+        const legVal = resolveField(legKey, t(leg.l));
         const navLink = m.gm
           ? `<a class="nav" target="_blank" rel="noopener"
                href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(o.q)}&destination=${encodeURIComponent(dst.q)}&travelmode=${m.gm}">${ui.navBtn}</a>`
           : '';
+        const labelHtml = EDIT_MODE
+          ? `<input type="text" class="edit-field leg-input" data-editkey="${legKey}" value="${escapeHtml(legVal)}">`
+          : `<span class="lbl" data-editkey="${legKey}">${escapeHtml(legVal)}</span>`;
         html += `
         <div class="leg ${m.cls}" style="--mode:${m.css}">
           <div class="track"><i></i></div>
           <div class="how">
-            <span class="pill">${t(m.label)}</span>
-            <span class="lbl">${t(leg.l)}</span>
+            <span class="pill">${escapeHtml(t(m.label))}</span>
+            ${labelHtml}
             ${navLink}
           </div>
         </div>`;
@@ -923,15 +1046,22 @@ function buildAllDays() {
     if (day.note) html += `<div class="daynote"><b>${ui.note}</b>${t(day.note)}</div>`;
     sec.innerHTML = html;
 
-    /* 點某一站 → 地圖只留該站與下一站（含中間那段路線） */
-    sec.querySelectorAll('.stop').forEach(el => {
-      const j = Number(el.dataset.i);
-      const act = () => setFocus(i, focusState[i] === j ? null : j);
-      el.addEventListener('click', act);
-      el.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); }
+    if (EDIT_MODE) {
+      /* 編輯模式下站點是輸入欄位，不做地圖聚焦；離開焦點就存檔 */
+      sec.querySelectorAll('.edit-field').forEach(el => {
+        el.addEventListener('blur', () => saveEdit(el.dataset.editkey, el.value));
       });
-    });
+    } else {
+      /* 點某一站 → 地圖只留該站與下一站（含中間那段路線） */
+      sec.querySelectorAll('.stop').forEach(el => {
+        const j = Number(el.dataset.i);
+        const act = () => setFocus(i, focusState[i] === j ? null : j);
+        el.addEventListener('click', act);
+        el.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); }
+        });
+      });
+    }
     sec.querySelector('.show-all').addEventListener('click', () => setFocus(i, null));
 
     sec.querySelectorAll('.note-block').forEach(wireNoteBlock);
@@ -943,6 +1073,17 @@ function buildAllDays() {
 document.getElementById('langBtn').addEventListener('click', () => {
   LANG = LANG === 'zh' ? 'ja' : 'zh';
   localStorage.setItem('sydLang', LANG);
+  Object.keys(mapInit).forEach(k => { mapInit[k].remove(); delete mapInit[k]; });
+  Object.keys(focusState).forEach(k => delete focusState[k]);
+  applyStaticUI();
+  buildAllDays();
+  showDay(currentDay);
+});
+
+document.getElementById('editBtn').addEventListener('click', () => {
+  EDIT_MODE = !EDIT_MODE;
+  /* buildAllDays() 會整個重建 DOM（含地圖容器），舊的 Leaflet 地圖物件
+     會變成孤兒，一定要清掉讓它重新建立，否則地圖會變空白。 */
   Object.keys(mapInit).forEach(k => { mapInit[k].remove(); delete mapInit[k]; });
   Object.keys(focusState).forEach(k => delete focusState[k]);
   applyStaticUI();
