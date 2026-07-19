@@ -6,6 +6,8 @@
 <title>雪梨之旅 2026・每日路線地圖</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg:#eef1f0;
@@ -205,6 +207,47 @@
     padding:14px 16px;font-size:.8rem;color:#4d4635;
   }
   .daynote b{display:block;margin-bottom:4px;font-size:.78rem;letter-spacing:.08em;}
+  .note-block{
+    margin:2px 0 10px 42px;
+  }
+  .note-toggle{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:inherit;font-size:.72rem;font-weight:600;color:var(--ink-soft);
+    background:none;border:none;cursor:pointer;padding:2px 0;
+  }
+  .note-toggle:hover{color:var(--navy);}
+  .note-dot{
+    width:6px;height:6px;border-radius:50%;background:var(--bus);
+  }
+  .note-dot[hidden]{display:none;}
+  .note-panel{
+    margin-top:6px;background:#f6f8f8;border:1px solid var(--line);
+    border-radius:12px;padding:10px 12px;
+  }
+  .note-panel[hidden]{display:none;}
+  .note-text{
+    width:100%;min-height:60px;resize:vertical;
+    font-family:inherit;font-size:.82rem;color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:8px;
+    background:#fff;
+  }
+  .note-footer{
+    display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;
+  }
+  .note-author{
+    flex:1 1 120px;min-width:100px;
+    font-family:inherit;font-size:.75rem;color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:5px 8px;
+    background:#fff;
+  }
+  .note-save{
+    flex:0 0 auto;font-family:inherit;font-size:.75rem;font-weight:600;
+    background:var(--navy);color:#fff;border:none;border-radius:10px;
+    padding:6px 14px;cursor:pointer;
+  }
+  .note-meta{
+    margin-top:6px;font-size:.68rem;color:var(--ink-soft);
+  }
   .stop-marker{
     position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     background:var(--navy);color:#fff;border-radius:13px;
@@ -266,7 +309,15 @@ const UI = {
     navBtn:'導航',
     note:'NOTE',
     langBtn:'日本語',
-    docTitle:'雪梨之旅 2026・每日路線地圖'
+    docTitle:'雪梨之旅 2026・每日路線地圖',
+    noteToggle:'備註',
+    notePlaceholder:'在這裡加一則備註，其他人也看得到…',
+    noteAuthorPlaceholder:'你的名字（選填）',
+    noteSave:'儲存',
+    noteSaving:'儲存中…',
+    noteUpdatedBy:(who,when)=>`${who?who+'・':''}最後更新 ${when}`,
+    noteOffline:'尚未連接同步服務，這則備註只存在這台裝置（需要設定 Firebase）',
+    noteSynced:'已連上同步服務'
   },
   ja:{
     title:'シドニー旅行・毎日ルートマップ',
@@ -279,7 +330,15 @@ const UI = {
     navBtn:'ナビ',
     note:'メモ',
     langBtn:'中文',
-    docTitle:'シドニー旅行 2026・毎日ルートマップ'
+    docTitle:'シドニー旅行 2026・毎日ルートマップ',
+    noteToggle:'メモ',
+    notePlaceholder:'ここにメモを追加、他の人にも見えます…',
+    noteAuthorPlaceholder:'お名前（任意）',
+    noteSave:'保存',
+    noteSaving:'保存中…',
+    noteUpdatedBy:(who,when)=>`${who?who+'・':''}最終更新 ${when}`,
+    noteOffline:'同期サービス未接続、このメモはこの端末にのみ保存されます（Firebaseの設定が必要）',
+    noteSynced:'同期サービスに接続済み'
   }
 };
 
@@ -300,6 +359,116 @@ function t(field) {
 }
 
 let LANG = localStorage.getItem('sydLang') || 'zh';
+
+/* ---------- 共用備註：任何人加的內容都同步給大家看 ----------
+   後端用 Firebase Firestore（免費、免伺服器，靜態網站也能用）。
+   下面六個值是「公開識別碼」不是密碼，可以放心寫進公開的原始碼裡，
+   真正的存取控制由 Firestore 的 Security Rules 決定。
+   還沒申請 Firebase 專案前，這組是佔位值，功能會自動降級成
+   「只存在這台裝置」，不會壞掉、也不會顯示錯誤。               */
+const firebaseConfig = {
+  apiKey: 'PASTE_YOUR_API_KEY',
+  authDomain: 'PASTE_YOUR_PROJECT.firebaseapp.com',
+  projectId: 'PASTE_YOUR_PROJECT_ID',
+  storageBucket: 'PASTE_YOUR_PROJECT.appspot.com',
+  messagingSenderId: 'PASTE_YOUR_SENDER_ID',
+  appId: 'PASTE_YOUR_APP_ID'
+};
+
+let notesDb = null;
+try {
+  if (firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('PASTE_')) {
+    firebase.initializeApp(firebaseConfig);
+    notesDb = firebase.firestore();
+  }
+} catch (e) { notesDb = null; }
+
+const notesCache = {};      /* key = `${dayId}_${stopIndex}` → {text, author, updatedAt} */
+const NOTES_LOCAL_KEY = 'sydNotesLocal';
+try { Object.assign(notesCache, JSON.parse(localStorage.getItem(NOTES_LOCAL_KEY) || '{}')); } catch (e) {}
+
+function formatNoteTime(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getMonth()+1}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function refreshNoteBlock(block) {
+  const key = block.dataset.key;
+  const entry = notesCache[key];
+  const dot = block.querySelector('.note-dot');
+  dot.hidden = !(entry && entry.text);
+  const panel = block.querySelector('.note-panel');
+  if (panel.hidden) return;   /* 面板關著就不動使用者可能正在編輯的內容 */
+  const meta = block.querySelector('.note-meta');
+  if (entry && entry.updatedAt) {
+    meta.textContent = UI[LANG].noteUpdatedBy(entry.author || '', formatNoteTime(new Date(entry.updatedAt)));
+  } else {
+    meta.textContent = '';
+  }
+}
+
+function refreshAllVisibleNoteBlocks() {
+  document.querySelectorAll('.note-block').forEach(refreshNoteBlock);
+}
+
+if (notesDb) {
+  notesDb.collection('notes').onSnapshot(snap => {
+    snap.docChanges().forEach(change => {
+      const d = change.doc.data();
+      notesCache[change.doc.id] = {
+        text: d.text || '',
+        author: d.author || '',
+        updatedAt: d.updatedAt && d.updatedAt.toMillis ? d.updatedAt.toMillis() : Date.now()
+      };
+    });
+    refreshAllVisibleNoteBlocks();
+  }, () => { /* 讀取失敗就維持離線模式，不打斷使用 */ });
+}
+
+function saveNote(key, text, author) {
+  try { localStorage.setItem('sydNoteAuthor', author); } catch (e) {}
+  if (notesDb) {
+    notesDb.collection('notes').doc(key).set({
+      text, author,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+  } else {
+    notesCache[key] = { text, author, updatedAt: Date.now() };
+    try { localStorage.setItem(NOTES_LOCAL_KEY, JSON.stringify(notesCache)); } catch (e) {}
+  }
+}
+
+function wireNoteBlock(block) {
+  const key = block.dataset.key;
+  const toggle = block.querySelector('.note-toggle');
+  const panel = block.querySelector('.note-panel');
+  const textarea = block.querySelector('.note-text');
+  const authorInput = block.querySelector('.note-author');
+  const saveBtn = block.querySelector('.note-save');
+  const meta = block.querySelector('.note-meta');
+
+  refreshNoteBlock(block);
+
+  toggle.addEventListener('click', e => {
+    e.stopPropagation();
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) {
+      const entry = notesCache[key];
+      textarea.value = (entry && entry.text) || '';
+      authorInput.value = localStorage.getItem('sydNoteAuthor') || (entry && entry.author) || '';
+      if (!notesDb) meta.textContent = UI[LANG].noteOffline;
+      else refreshNoteBlock(block);
+    }
+  });
+  ['click', 'keydown', 'mousedown'].forEach(evt => {
+    panel.addEventListener(evt, e => e.stopPropagation());
+  });
+  saveBtn.addEventListener('click', () => {
+    saveNote(key, textarea.value.trim(), authorInput.value.trim());
+    saveBtn.textContent = UI[LANG].noteSaving;
+    setTimeout(() => { saveBtn.textContent = UI[LANG].noteSave; refreshNoteBlock(block); }, 400);
+  });
+}
 
 /* 常用轉乘節點座標（僅用於畫示意軌跡） */
 const GS=[-33.9063,151.2033], CEN=[-33.8832,151.2062], CQ=[-33.8615,151.2110],
@@ -643,6 +812,7 @@ function buildAllDays() {
 
     day.stops.forEach((s, j) => {
       const dur = s.dur ? `<span class="dur">${t(s.dur)}</span>` : '';
+      const noteKey = day.id + '_' + j;
       html += `
         <div class="stop" data-i="${j}" role="button" tabindex="0">
           <div class="badge">${j+1}</div>
@@ -650,6 +820,17 @@ function buildAllDays() {
             <div class="time-row"><span class="time">${s.t}</span>${dur}</div>
             <div class="name">${t(s.n)}</div>
             ${t(s.d) ? `<div class="desc">${t(s.d)}</div>` : ''}
+          </div>
+        </div>
+        <div class="note-block" data-key="${noteKey}">
+          <button type="button" class="note-toggle">${ui.noteToggle}<span class="note-dot" hidden></span></button>
+          <div class="note-panel" hidden>
+            <textarea class="note-text" placeholder="${ui.notePlaceholder}"></textarea>
+            <div class="note-footer">
+              <input type="text" class="note-author" placeholder="${ui.noteAuthorPlaceholder}">
+              <button type="button" class="note-save">${ui.noteSave}</button>
+            </div>
+            <div class="note-meta"></div>
           </div>
         </div>`;
       if (j < day.legs.length) {
@@ -686,6 +867,8 @@ function buildAllDays() {
       });
     });
     sec.querySelector('.show-all').addEventListener('click', () => setFocus(i, null));
+
+    sec.querySelectorAll('.note-block').forEach(wireNoteBlock);
 
     daysEl.appendChild(sec);
   });
