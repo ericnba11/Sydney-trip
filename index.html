@@ -463,12 +463,15 @@ function saveEdit(key, value) {
   }
 }
 
-/* 別人同步過來的更新：正在打字的欄位不要蓋掉，其餘直接更新畫面 */
 function refreshEditableFields() {
   document.querySelectorAll('[data-editkey]').forEach(el => {
     if (el === document.activeElement) return;
     const key = el.dataset.editkey;
-    const value = resolveField(key, el.dataset.default || '');
+    if (el._defaultText === undefined) {
+      el._defaultText = ('value' in el) ? el.value : el.textContent;
+    }
+    const fallback = el.dataset.default || el._defaultText || '';
+    const value = resolveField(key, fallback);
     if ('value' in el) el.value = value;
     else el.textContent = value;
   });
@@ -849,9 +852,9 @@ function buildAllDays() {
         <div class="stop" data-i="${j}" role="button" tabindex="0">
           <div class="badge">${j+1}</div>
           <div class="info">
-            <div class="time-row"><span class="time" data-editkey="${timeKey}">${escapeHtml(timeVal)}</span><span class="dur" data-editkey="${durKey}" data-hideable ${durVal ? '' : 'hidden'}>${escapeHtml(durVal)}</span></div>
-            <div class="name" data-editkey="${nameKey}">${escapeHtml(nameVal)}</div>
-            <div class="desc" data-editkey="${descKey}" data-hideable ${descVal ? '' : 'hidden'}>${escapeHtml(descVal)}</div>
+            <div class="time-row"><span class="time" data-editkey="${timeKey}" data-default="${escapeHtml(s.t)}">${escapeHtml(timeVal)}</span><span class="dur" data-editkey="${durKey}" data-default="${escapeHtml(s.dur ? t(s.dur) : '')}" data-hideable ${durVal ? '' : 'hidden'}>${escapeHtml(durVal)}</span></div>
+            <div class="name" data-editkey="${nameKey}" data-default="${escapeHtml(t(s.n))}">${escapeHtml(nameVal)}</div>
+            <div class="desc" data-editkey="${descKey}" data-default="${escapeHtml(t(s.d))}" data-hideable ${descVal ? '' : 'hidden'}>${escapeHtml(descVal)}</div>
           </div>
         </div>`;
       }
@@ -874,8 +877,8 @@ function buildAllDays() {
                href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(o.q)}&destination=${encodeURIComponent(dst.q)}&travelmode=${m.gm}">${ui.navBtn}</a>`
           : '';
         const labelHtml = EDIT_MODE
-          ? `<input type="text" class="edit-field leg-input" data-editkey="${legKey}" value="${escapeHtml(legVal)}">`
-          : `<span class="lbl" data-editkey="${legKey}">${escapeHtml(legVal)}</span>`;
+          ? `<input type="text" class="edit-field leg-input" data-editkey="${legKey}" data-default="${escapeHtml(t(leg.l))}" value="${escapeHtml(legVal)}">`
+          : `<span class="lbl" data-editkey="${legKey}" data-default="${escapeHtml(t(leg.l))}">${escapeHtml(legVal)}</span>`;
         html += `
         <div class="leg ${m.cls}" style="--mode:${m.css}">
           <div class="track"><i></i></div>
