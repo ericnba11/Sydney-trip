@@ -163,10 +163,12 @@
   }
   .daynote b{display:block;margin-bottom:4px;font-size:.78rem;letter-spacing:.08em;}
   .stop-marker{
-    background:var(--navy);color:#fff;border-radius:50%;
-    width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    background:var(--navy);color:#fff;border-radius:13px;
+    min-width:26px;height:26px;padding:0 6px;box-sizing:border-box;
+    display:flex;align-items:center;justify-content:center;
     font-size:12px;font-weight:700;border:2px solid #fff;
-    box-shadow:0 1px 4px rgba(0,0,0,.35);
+    box-shadow:0 1px 4px rgba(0,0,0,.35);white-space:nowrap;
   }
   footer{
     text-align:center;font-size:.7rem;color:var(--ink-soft);
@@ -200,7 +202,8 @@
 <main id="days"></main>
 
 <footer>
-  地圖路線為示意軌跡（非實際道路），實際導航請點各段「導航」開啟 Google Maps。<br>
+  步行／公車／計程車沿真實道路繪製（OSM 路網）；火車、輕軌、渡輪、飛機為轉乘點示意連線。<br>
+  實際導航請點各段「導航」開啟 Google Maps。<br>
   地圖圖資 © OpenStreetMap 貢獻者 © CARTO・需連網載入
 </footer>
 
@@ -219,6 +222,13 @@ const MODES = {
 const GS=[-33.9063,151.2033], CEN=[-33.8832,151.2062], CQ=[-33.8615,151.2110],
       WYN=[-33.8659,151.2058], TH=[-33.8732,151.2064], STR=[-33.8720,151.0942],
       BJ=[-33.8912,151.2501], HOME=[-33.9168,151.2043];
+
+/* 343 公車路廊：住處門口 Rothschild Ave 上車，沿 Joynton Ave → Elizabeth St
+   → Central（Chalmers St）→ Martin Place → Circular Quay，全程不用轉車。 */
+const B343_JOY=[-33.9070,151.2079], B343_ELIZ=[-33.8965,151.2075],
+      B343_MP=[-33.8678,151.2108];
+const BUS343_IN  = [B343_JOY, B343_ELIZ, CEN, B343_MP];   /* 往市區 */
+const BUS343_OUT = [B343_MP, CEN, B343_ELIZ, B343_JOY];   /* 回住處 */
 
 const DAYS = [
 {
@@ -255,17 +265,17 @@ const DAYS = [
   ],
   legs:[
     {m:'taxi', l:'計程車約 15 分・兩人合搭比火車＋機場站費划算'},
-    {m:'train', l:'步行至 Green Square → T8 → Central 轉 Circular Quay，約 40 分', via:[GS,CEN,CQ]},
+    {m:'bus', l:'343 公車 Rothschild Ave 上車 → Circular Quay，約 40 分・不用轉車', via:BUS343_IN},
     {m:'walk', l:'步行 5 分'},
     {m:'walk', l:'步行上坡約 10 分'},
-    {m:'train', l:'Circular Quay → Central → Green Square，約 40 分', via:[CQ,CEN,GS]},
+    {m:'bus', l:'343 公車 Circular Quay → 住處門口，約 40 分', via:BUS343_OUT},
     {m:'walk', l:'步行 3 分'}
   ],
   note:'交通卡：直接用感應式信用卡逼卡（兩人各一張）。今天行程刻意排輕鬆，撐到晚上再睡，隔天就能接上時差。'
 },
 {
   id:'d2', tab:'8/24 一', date:'2026 / 08 / 24（一）', title:'歌劇院・植物園・城中經典徒步',
-  chips:['全程順路步行','美術館與博物館免費','晚餐 Bar Totti\u2019s'],
+  chips:['343 公車門口直達','全程順路步行','美術館與博物館免費','晚餐 Bar Totti\u2019s'],
   stops:[
     {t:'08:30', n:'住處出發', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
     {t:'09:15', n:'雪梨歌劇院', d:'沿岸環繞拍照；內部 1 小時導覽需預約（可選）', ll:[-33.8568,151.2153], q:'Sydney Opera House'},
@@ -280,7 +290,7 @@ const DAYS = [
     {t:'19:30', n:'回到住處', d:'', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
-    {m:'train', l:'Green Square → Central → Circular Quay，約 40 分', via:[GS,CEN,CQ]},
+    {m:'bus', l:'343 公車門口上車 → Circular Quay，下車走 5 分到歌劇院，約 45 分', via:BUS343_IN},
     {m:'walk', l:'穿越植物園散步'},
     {m:'walk', l:'園內步道約 15 分'},
     {m:'walk', l:'沿海灣步行約 15 分'},
@@ -289,7 +299,7 @@ const DAYS = [
     {m:'walk', l:'步行 3 分'},
     {m:'walk', l:'穿越公園 2 分'},
     {m:'walk', l:'步行 20 分（或 Museum 站搭兩站到 Wynyard）'},
-    {m:'train', l:'Wynyard → Central → Green Square，約 30 分', via:[WYN,CEN,GS]}
+    {m:'bus', l:'走到 Elizabeth St 搭 343 → 住處門口，約 40 分', via:BUS343_OUT}
   ],
   note:'週一博物館與美術館人少。想進歌劇院內部要先在官網預約導覽場次。'
 },
@@ -330,14 +340,14 @@ const DAYS = [
     {t:'18:15', n:'回到住處', d:'晚上自炊，連兩天大行程後緩衝', ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
-    {m:'train', l:'Green Square → Central → Circular Quay，約 35 分', via:[GS,CEN]},
+    {m:'bus', l:'343 公車門口直達 Circular Quay 渡輪碼頭，約 40 分', via:BUS343_IN},
     {m:'ferry', l:'F2 渡輪 12 分'},
     {m:'bus', l:'園區接駁車上山 5 分'},
     {m:'taxi', l:'計程車約 10 分（或 238 公車轉乘）'},
     {m:'walk', l:'沿灘散步 8 分'},
     {m:'taxi', l:'計程車約 10 分'},
     {m:'ferry', l:'渡輪 12 分'},
-    {m:'train', l:'Circular Quay → Central → Green Square，約 35 分', via:[CEN,GS]}
+    {m:'bus', l:'343 公車 Circular Quay → 住處門口，約 40 分', via:BUS343_OUT}
   ],
   note:'動物園門票提前線上購買比現場便宜；海豹表演與餵食時間到園後先查看板排順序。'
 },
@@ -451,7 +461,7 @@ DAYS.forEach((day, i) => {
       <div class="chips">${day.chips.map(c=>`<span class="chip">${c}</span>`).join('')}</div>
     </div>
     <div class="mapbox" id="map-${day.id}"></div>
-    <div class="map-hint">路線為示意軌跡・可縮放</div>
+    <div class="map-hint">步行／公車／計程車為真實路徑・可縮放・點編號看站名</div>
     <div class="timeline">`;
 
   day.stops.forEach((s, j) => {
@@ -490,11 +500,70 @@ DAYS.forEach((day, i) => {
   daysEl.appendChild(sec);
 });
 
+/* ---------- 真實路線：Valhalla 公開路由服務（免金鑰） ----------
+   走路／公車／計程車會沿真實道路繪製；火車、輕軌、渡輪、飛機
+   沒有免費的公開路網 API，仍以轉乘點連線示意。               */
+const ROUTE_COSTING = { walk:'pedestrian', bus:'bus', taxi:'auto' };
+
+const routeCache = {};
+try { Object.assign(routeCache, JSON.parse(localStorage.getItem('sydRoutes2') || '{}')); } catch (e) {}
+function saveRouteCache() {
+  try { localStorage.setItem('sydRoutes2', JSON.stringify(routeCache)); } catch (e) {}
+}
+
+/* Valhalla 的 shape 是 precision-6 的 encoded polyline */
+function decodeShape(str) {
+  let idx = 0, lat = 0, lng = 0;
+  const out = [];
+  while (idx < str.length) {
+    let shift = 0, result = 0, byte;
+    do { byte = str.charCodeAt(idx++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
+    do { byte = str.charCodeAt(idx++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+    out.push([lat / 1e6, lng / 1e6]);
+  }
+  return out;
+}
+
+async function fetchRoute(mode, pts) {
+  const costing = ROUTE_COSTING[mode];
+  if (!costing) return null;
+  const key = costing + '|' + pts.map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5)).join(';');
+  /* 每個 leg 的 shape 都是各自從 (0,0) 開始編碼的，必須分段解碼再串起來 */
+  const join = shapes => shapes.reduce((acc, s) => acc.concat(decodeShape(s)), []);
+  /* 只接受陣列；舊版或壞掉的快取直接忽略、重新抓一次 */
+  if (Array.isArray(routeCache[key])) return join(routeCache[key]);
+  const body = { locations: pts.map(p => ({ lat: p[0], lon: p[1] })), costing };
+  try {
+    const res = await fetch('https://valhalla1.openstreetmap.de/route?json=' + encodeURIComponent(JSON.stringify(body)));
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const shapes = ((data.trip && data.trip.legs) || []).map(l => l.shape).filter(Boolean);
+    if (!shapes.length) throw new Error('no shape');
+    routeCache[key] = shapes;
+    saveRouteCache();
+    return join(shapes);
+  } catch (e) {
+    return null; /* 失敗就維持原本的示意直線 */
+  }
+}
+
+/* 排隊送出，不要一次打爆免費服務 */
+let routeChain = Promise.resolve();
+function queueRoute(mode, pts) {
+  const job = routeChain.then(() => fetchRoute(mode, pts));
+  const pause = () => new Promise(r => setTimeout(r, 150));
+  routeChain = job.then(pause, pause);
+  return job;
+}
+
 function buildMap(day) {
   const map = L.map('map-' + day.id, { scrollWheelZoom: false });
-  const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+  const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     subdomains: 'abcd',
-    maxZoom: 19,
+    maxZoom: 20,
     crossOrigin: true,
     attribution: '&copy; OpenStreetMap &copy; CARTO'
   }).addTo(map);
@@ -513,30 +582,48 @@ function buildMap(day) {
 
   const bounds = [];
 
+  /* 同一個座標可能出現多次（例如第 1 站和第 7 站都是住處）。
+     合併成一個標記，編號並列顯示，避免後面的蓋掉前面的。 */
+  const spots = new Map();
   day.stops.forEach((s, j) => {
     bounds.push(s.ll);
-    L.marker(s.ll, {
+    const key = s.ll[0].toFixed(5) + ',' + s.ll[1].toFixed(5);
+    if (!spots.has(key)) spots.set(key, { ll: s.ll, items: [] });
+    spots.get(key).items.push({ idx: j + 1, stop: s });
+  });
+
+  spots.forEach(spot => {
+    const label = spot.items.map(i => i.idx).join('・');
+    const popup = spot.items.map(i => `<b>${i.stop.t}</b>　${i.idx}. ${i.stop.n}`).join('<br>');
+    L.marker(spot.ll, {
       icon: L.divIcon({
         className: '',
-        html: `<div class="stop-marker">${j+1}</div>`,
+        html: `<div class="stop-marker">${label}</div>`,
         iconSize: [26,26], iconAnchor: [13,13]
       })
-    }).addTo(map).bindPopup(`<b>${s.t}</b>　${s.n}`);
+    }).addTo(map).bindPopup(popup);
   });
 
   day.legs.forEach((leg, j) => {
     const m = MODES[leg.m];
     const pts = [day.stops[j].ll, ...(leg.via || []), day.stops[j+1].ll];
     (leg.via || []).forEach(v => bounds.push(v));
-    L.polyline(pts, {
+    /* 先畫示意直線，路由回來再換成真實路徑 */
+    const line = L.polyline(pts, {
       color: m.color,
       weight: 4,
       opacity: .85,
       dashArray: m.dash || null
     }).addTo(map);
+    if (ROUTE_COSTING[leg.m]) {
+      queueRoute(leg.m, pts)
+        .then(real => { if (real && real.length > 1) line.setLatLngs(real); })
+        .catch(() => {}); /* 抓不到就維持示意直線 */
+    }
   });
 
   map.fitBounds(bounds, { padding: [30, 30] });
+  map._tripBounds = bounds;   /* 容器剛顯示時量到的尺寸可能是 0，稍後要重新 fit 一次 */
   return map;
 }
 
@@ -547,7 +634,15 @@ function showDay(i) {
   if (!mapInit[day.id]) {
     mapInit[day.id] = buildMap(day);
   }
-  setTimeout(() => mapInit[day.id].invalidateSize(), 60);
+  setTimeout(() => {
+    const map = mapInit[day.id];
+    map.invalidateSize();
+    /* 只在第一次顯示時重新 fit，之後保留使用者自己的縮放與拖曳 */
+    if (map._tripBounds) {
+      map.fitBounds(map._tripBounds, { padding: [30, 30] });
+      map._tripBounds = null;
+    }
+  }, 60);
 }
 
 showDay(1); /* 預設顯示 8/23 抵達日 */

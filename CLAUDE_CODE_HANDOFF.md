@@ -10,7 +10,10 @@
 一個**單一檔案、純靜態的 HTML 網頁**（`sydney_trip_maps.html`），呈現一趟雪梨自由行的**每日行程 + 每日一張互動地圖**。地圖上會用編號標出當天各站點、用不同顏色的線畫出站與站之間的移動軌跡，顏色代表交通方式。每段路線都有一個「導航」按鈕會開啟 Google Maps。
 
 - 前端技術：原生 HTML/CSS/JS + **Leaflet 1.9.4**（地圖引擎，從 cdnjs 載入）
-- 地圖圖磚：主要用 **CARTO light_all**，失敗時自動 fallback 到 **OpenStreetMap**
+- 地圖圖磚：主要用 **CARTO Voyager**（彩色），失敗時自動 fallback 到 **OpenStreetMap**
+- 路線幾何：步行／公車／計程車會呼叫 **Valhalla 公開 API**（`valhalla1.openstreetmap.de`，免金鑰）
+  取得沿真實道路的路徑，結果快取在 localStorage；火車、輕軌、渡輪、飛機沒有免費公開路網
+  API，仍以 `via` 轉乘點連線示意。抓不到就自動退回直線，不會壞掉。
 - 沒有任何 build 步驟、沒有框架、沒有 npm 相依。用瀏覽器直接開 `index.html` 就能跑。
 - 語言：介面為繁體中文。
 
@@ -90,6 +93,11 @@
 檔案上方定義了轉乘節點常數供 `via` 重複使用：
 `GS`(Green Square)、`CEN`(Central)、`CQ`(Circular Quay)、`WYN`(Wynyard)、`TH`(Town Hall)、`STR`(Strathfield)、`BJ`(Bondi Junction)、`HOME`(住處)。
 
+另有 **343 公車路廊**常數：`BUS343_IN`（往市區）與 `BUS343_OUT`（回住處）。
+343 從住處門口的 Rothschild Ave 上車，沿 Joynton Ave → Elizabeth St → Central → Martin Place
+→ Circular Quay，**全程不用轉車**，是往歌劇院／環形碼頭最方便的方式（比走 12–15 分到
+Green Square 轉火車省事）。住處往返市區的路段請優先用這組常數。
+
 ---
 
 ## 4. 常見修改怎麼做（給 Claude Code 的操作指引）
@@ -139,7 +147,7 @@
 - 微調每天的站點順序或時間節奏（使用者偏好反覆迭代）。
 - 可能把「獵人谷 Hunter Valley 自駕」重新排入（目前擱置）。
 - 補上各景點門票／營業時間連結，或加入預算數字卡片（舊版 `sydney_itinerary` 曾有每日預算與總花費）。
-- 讓地圖線條更貼近真實道路（目前是示意軌跡；若要真實路徑需接路由服務，成本較高，非必要）。
+- 火車／輕軌目前仍是轉乘點示意連線；若要真實軌道路徑，需要另外抓 OSM 鐵道資料（Overpass），成本較高。
 
 ---
 
