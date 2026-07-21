@@ -22,6 +22,7 @@
     --lightrail:#c8102e;
     --ferry:#0097a7;
     --taxi:#7d4f9e;
+    --car:#2e7d32;
     --flight:#37474f;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -273,9 +274,10 @@ const MODES = {
   lightrail: {label:{zh:'輕軌',ja:'ライトレール'}, css:'var(--lightrail)', color:'#c8102e', dash:null,   cls:'',       gm:'transit'},
   ferry:     {label:{zh:'渡輪',ja:'フェリー'}, css:'var(--ferry)',     color:'#0097a7', dash:'1 8',  cls:'dotted', gm:'transit'},
   taxi:      {label:{zh:'計程車',ja:'タクシー'}, css:'var(--taxi)',      color:'#7d4f9e', dash:null,   cls:'',       gm:'driving'},
+  car:       {label:{zh:'自駕',ja:'レンタカー'}, css:'var(--car)',      color:'#2e7d32', dash:null,   cls:'',       gm:'driving'},
   flight:    {label:{zh:'飛機',ja:'飛行機'},   css:'var(--flight)',    color:'#37474f', dash:'2 10', cls:'dotted', gm:null}
 };
-const LEGEND_ORDER = ['walk','train','bus','lightrail','ferry','taxi'];
+const LEGEND_ORDER = ['walk','train','bus','lightrail','ferry','taxi','car'];
 
 const UI = {
   zh:{
@@ -512,11 +514,12 @@ const DAYS = [
   title:{zh:'藍山國家公園一日遊', ja:'ブルーマウンテン国立公園 日帰り旅行'},
   chips:[
     {zh:'平日避開人潮', ja:'平日で混雑を回避'},
+    {zh:'門口 343 直達 Central 避寒風', ja:'自宅前343バスでCentral直通・寒風回避'},
     {zh:'山上 0–12°C 帶大衣', ja:'山上は0–12°C、上着必須'},
     {zh:'Scenic World 線上購票', ja:'Scenic Worldはオンライン購入がお得'}
   ],
   stops:[
-    {t:'07:00', n:{zh:'住處出發',ja:'宿を出発'}, d:{zh:'早餐帶著路上吃',ja:'朝食は持参して道中で'}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'07:00', n:{zh:'住處出發',ja:'宿を出発'}, d:{zh:'門口搭 343 公車去 Central 轉火車（免早起走去 Green Square 吹寒風）',ja:'自宅前から343系統バスでCentralへ（寒風の中徒歩でGreen Squareへ行かずに済む）'}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
     {t:'09:30', n:{zh:'Katoomba 車站',ja:'カトゥーンバ駅'}, d:{zh:'',ja:''}, dur:{zh:'約 10 分',ja:'約10分'}, ll:[-33.7128,150.3119], q:'Katoomba Station'},
     {t:'10:00', n:{zh:'Echo Point 三姊妹岩',ja:'エコーポイント（スリーシスターズ）'}, d:{zh:'觀景台＋峽谷全景',ja:'展望台から渓谷の全景を一望'}, dur:{zh:'約 30 分',ja:'約30分'}, ll:[-33.7320,150.3122], q:'Echo Point Katoomba'},
     {t:'11:15', n:{zh:'Scenic World',ja:'シーニックワールド'}, d:{zh:'礦車鐵道、纜車、雨林棧道；套票線上買較省',ja:'トロッコ鉄道・ケーブルカー・熱帯雨林の遊歩道；セット券はオンライン購入がお得'}, dur:{zh:'約 3 小時',ja:'約3時間'}, ll:[-33.7273,150.2996], q:'Scenic World Katoomba'},
@@ -525,16 +528,16 @@ const DAYS = [
     {t:'19:45', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
-    {m:'train', l:{zh:'Green Square → Central 轉藍山線直達，約 2 小時 20 分',ja:'Green Square → Centralでブルーマウンテン線に乗り換え直通、約2時間20分'}, via:[GS,CEN]},
+    {m:'bus', l:{zh:'343 公車至 Central 站轉乘藍山線火車至 Katoomba，約 2 小時 10 分',ja:'343系統バスでCentral駅へ、ブルーマウンテン線電車に乗り換えKatoombaへ、約2時間10分'}, via:[CEN]},
     {m:'bus', l:{zh:'686 公車約 10 分（或步行 30 分）',ja:'686系統バスで約10分（または徒歩30分）'}},
     {m:'walk', l:{zh:'Prince Henry 懸崖步道約 40 分',ja:'プリンス・ヘンリー崖沿いの遊歩道を約40分'}},
     {m:'bus', l:{zh:'686 回 Katoomba → 火車一站到 Leura',ja:'686系統バスでKatoombaへ戻り → 電車で一駅先のLeuraへ'}},
     {m:'train', l:{zh:'Leura → Central，約 2 小時',ja:'Leura → Central、約2時間'}, via:[CEN]},
-    {m:'train', l:{zh:'Central → Green Square ＋ 步行，約 20 分',ja:'Central → Green Square＋徒歩、約20分'}, via:[GS]}
+    {m:'bus', l:{zh:'Central 搭乘 343 公車直達住處門口，約 15 分',ja:'Centralから343系統バスで自宅前まで直通、約15分'}, via:BUS343_OUT}
   ],
   note:{
-    zh:'地圖含市區到藍山全程，兩指縮放可看 Katoomba 局部。回程火車班距約 30–60 分，出發前一晚用 Transport NSW Trip Planner 確認有無週間軌道施工。',
-    ja:'地図はシティからブルーマウンテンまでの全行程を含む、ピンチ操作でKatoomba周辺を拡大可能。帰りの電車は30〜60分間隔、前日夜にTransport NSWのTrip Plannerで平日の運休・工事情報を確認しておくこと。'
+    zh:'出發改為門口搭乘 343 公車直達 Central 轉火車，避開清晨低溫步行至 Green Square。回程火車班距約 30–60 分，出發前一晚用 Transport NSW Trip Planner 確認有無週間軌道施工。',
+    ja:'出発は自宅前から343系統バスでCentralへ直行し電車に乗り換え。早朝の低温の中Green Squareまで歩くのを回避。帰りの電車は30〜60分間隔、前日夜にTransport NSWのTrip Plannerで工事情報を確認すること。'
   }
 },
 {
@@ -550,7 +553,7 @@ const DAYS = [
     {t:'08:55', n:{zh:'Circular Quay',ja:'サーキュラー・キー'}, d:{zh:'F2 渡輪碼頭',ja:'F2フェリー乗り場'}, dur:{zh:'約 5 分',ja:'約5分'}, ll:CQ, q:'Circular Quay Wharf'},
     {t:'09:15', n:{zh:'Taronga 碼頭',ja:'タロンガ・ワーフ'}, d:{zh:'',ja:''}, dur:{zh:'約 10 分',ja:'約10分'}, ll:[-33.8397,151.2416], q:'Taronga Zoo Wharf'},
     {t:'09:30', n:{zh:'塔龍加動物園',ja:'タロンガ動物園'}, d:{zh:'接駁上山從正門由上往下逛；長頸鹿＋歌劇院同框機位',ja:'シャトルで山上の正門まで上がり、上から下へ見学；キリンとオペラハウスが一緒に写る撮影スポットあり'}, dur:{zh:'約 4.5 小時',ja:'約4時間30分'}, ll:[-33.8433,151.2411], q:'Taronga Zoo Sydney'},
-    {t:'14:15', n:{zh:'Balmoral Beach',ja:'バルモラル・ビーチ'}, d:{zh:'白沙灣、Rocky Point 小島',ja:'白砂のビーチ、Rocky Pointの小島'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.8235,151.2515], q:'Balmoral Beach Mosman'},
+    {t:'14:15', n:{zh:'Balmoral Beach',ja:'バルモラル・ビーチ'}, d:{zh:'白沙灣、Rocky Point 小島散步',ja:'白砂のビーチ、Rocky Pointの小島を散策'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.8235,151.2515], q:'Balmoral Beach Mosman'},
     {t:'15:30', n:{zh:'The Boathouse Balmoral',ja:'ザ・ボートハウス・バルモラル'}, d:{zh:'喝杯咖啡看海',ja:'コーヒーを飲みながら海を眺める'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.8213,151.2529], q:'The Boathouse Balmoral Beach'},
     {t:'17:00', n:{zh:'Taronga 碼頭',ja:'タロンガ・ワーフ'}, d:{zh:'搭黃昏渡輪回程，大橋歌劇院夜景',ja:'夕暮れのフェリーで帰路、橋とオペラハウスの夜景'}, dur:{zh:'約 5 分',ja:'約5分'}, ll:[-33.8397,151.2416], q:'Taronga Zoo Wharf'},
     {t:'17:15', n:{zh:'Circular Quay',ja:'サーキュラー・キー'}, d:{zh:'',ja:''}, dur:{zh:'約 15 分',ja:'約15分'}, ll:CQ, q:'Circular Quay'},
@@ -567,101 +570,111 @@ const DAYS = [
     {m:'bus', l:{zh:'343 公車 Circular Quay → 住處門口，約 40 分',ja:'343系統バスでCircular Quay → 自宅前まで約40分'}, via:BUS343_OUT}
   ],
   note:{
-    zh:'動物園門票提前線上購買比現場便宜；海豹表演與餵食時間到園後先查看板排順序。238 公車班距約 30 分，抓緊時間搭乘，或改沿路步行（約 1 小時、風景不錯）。',
-    ja:'動物園のチケットは事前オンライン購入が現地窓口より割安；アシカショーや餌やりの時間は入園後に掲示板で確認を。238系統バスは約30分間隔なので時間に余裕を持つか、沿道を徒歩で（約1時間、景色も良い）。'
+    zh:'動物園門票提前線上購買比現場便宜；海豹表演與餵食時間到園後先查看板排順序。238 公車班距約 30 分，抓緊時間搭乘。',
+    ja:'動物園のチケットは事前オンライン購入が現地窓口より割安；アシカショーや餌やりの時間は入園後に掲示板で確認を。238系統バスは約30分間隔なので時間に余裕を持つこと。'
   }
 },
 {
   id:'d5', iso:'2026-08-27',
-  title:{zh:'DFO Outlet・美術館・週四購物夜', ja:'DFOアウトレット・美術館・木曜ナイトショッピング'},
+  title:{zh:'雪梨大學・新魚市場・美術館・週四購物夜', ja:'シドニー大学・新フィッシュマーケット・美術館・木曜ナイトショッピング'},
   chips:[
-    {zh:'雪梨僅週四商店開到 21:00', ja:'シドニーは木曜のみ21:00まで営業'},
-    {zh:'午後排美術館，購物分兩段', ja:'午後は美術館、買い物は2回に分けて'},
-    {zh:'早餐 Bourke St Bakery（可選）', ja:'朝食はBourke St Bakery（任意）'}
+    {zh:'無 Outlet 完美順路', ja:'アウトレットなしで完璧な動線'},
+    {zh:'新魚市場海鮮午餐', ja:'新フィッシュマーケットで海鮮ランチ'},
+    {zh:'週四購物夜開到 21:00', ja:'木曜ナイトショッピング21:00まで'}
   ],
   stops:[
-    {t:'08:15', n:{zh:'住處出發',ja:'宿を出発'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
-    {t:'08:50', n:{zh:'Bourke St Bakery 總店（可選）',ja:'Bourke St Bakery 本店（任意）'}, d:{zh:'Surry Hills 早餐：牛肉派、酸種可頌',ja:'Surry Hillsで朝食：ビーフパイ、サワードウクロワッサン'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8890,151.2117], q:'Bourke Street Bakery Surry Hills'},
-    {t:'10:20', n:{zh:'DFO Homebush',ja:'DFOホームブッシュ'}, d:{zh:'Outlet 掃貨，美食街午餐；買齊就走，別耗到閉店',ja:'アウトレットで買い物、フードコートで昼食；買い終えたら切り上げる'}, dur:{zh:'約 2 小時 40 分',ja:'約2時間40分'}, ll:[-33.8623,151.0810], q:'DFO Homebush'},
-    {t:'13:45', n:{zh:'新南威爾斯美術館',ja:'ニューサウスウェールズ州立美術館'}, d:{zh:'免費；本館看澳洲與原住民藝術，新館 Naala Badu 看當代展，逛完街換個腦袋',ja:'入場無料；本館でオーストラリア・先住民アート、新館Naala Baduで現代美術、買い物の後の気分転換に'}, dur:{zh:'約 1.5 小時',ja:'約1時間30分'}, ll:[-33.8688,151.2173], q:'Art Gallery of New South Wales'},
-    {t:'15:30', n:{zh:'Pitt St Mall 購物夜',ja:'Pitt St Mallでナイトショッピング'}, d:{zh:'週四營業至 21:00，晚餐周邊解決；QVB 已改排到 8/24，不跟這天擠',ja:'木曜は21:00まで営業、夕食も周辺で；QVBは8/24に移したのでこの日とは重ならない'}, dur:{zh:'約 2 小時',ja:'約2時間'}, ll:[-33.8703,151.2087], q:'Pitt Street Mall Sydney'},
-    {t:'18:15', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+    {t:'08:30', n:{zh:'住處出發',ja:'宿を出発'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'08:45', n:{zh:'The Grounds Coffee Factory',ja:'The Grounds Coffee Factory'}, d:{zh:'早餐（住處旁 Alexandria 名店）',ja:'朝食（宿の近くAlexandriaの名店）'}, dur:{zh:'約 50 分',ja:'約50分'}, ll:[-33.9106,151.1940], q:'The Grounds Coffee Factory Alexandria'},
+    {t:'10:00', n:{zh:'雪梨大學',ja:'シドニー大学'}, d:{zh:'Main Quadrangle 哈利波特大樓拍照參觀',ja:'メインクアドラングル（ハリーポッター風の建物）見学'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.8880,151.1874], q:'University of Sydney Quadrangle'},
+    {t:'11:30', n:{zh:'新雪梨魚市場',ja:'新シドニー・フィッシュマーケット'}, d:{zh:'Blackwattle Bay 新館：現剖生蠔、海鮮丼與刺身午餐',ja:'Blackwattle Bay新館：生牡蠣、海鮮丼、刺身ランチ'}, dur:{zh:'約 2 小時',ja:'約2時間'}, ll:[-33.8776,151.1856], q:'Sydney Fish Market'},
+    {t:'14:00', n:{zh:'新南威爾斯美術館 AGNSW',ja:'ニューサウスウェールズ州立美術館'}, d:{zh:'免費；本館看澳洲與原住民藝術，新館 Naala Badu 看當代展',ja:'入場無料；本館でオーストラリア・先住民アート、新館Naala Baduで現代美術'}, dur:{zh:'約 1.5 小時',ja:'約1時間30分'}, ll:[-33.8688,151.2173], q:'Art Gallery of New South Wales'},
+    {t:'16:00', n:{zh:'Pitt St Mall 購物夜',ja:'Pitt St Mallでナイトショッピング'}, d:{zh:'週四營業至 21:00，精品與平價品牌買齊',ja:'木曜は21:00まで営業、ブティックやブランド品をまとめて購入'}, dur:{zh:'約 2.5 小時',ja:'約2時間30分'}, ll:[-33.8703,151.2087], q:'Pitt Street Mall Sydney'},
+    {t:'19:30', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
-    {m:'bus', l:{zh:'343 公車 Rothschild Ave 上車，Elizabeth St 下車走 15 分，約 26 分・每 10 分一班',ja:'343系統バスにRothschild Aveから乗車、Elizabeth Stで降りて徒歩15分、約26分・10分間隔'}, via:[B343_JOY,B343_ELIZ]},
-    {m:'train', l:{zh:'步行回 Central → Strathfield → 步行 15 分',ja:'Centralまで歩いて戻り → Strathfieldへ → 徒歩15分'}, via:[CEN,STR]},
-    {m:'train', l:{zh:'步行回 Strathfield 站 → 火車經 Central 到 Museum 站，約 45 分',ja:'Strathfield駅まで歩いて戻り → 電車でCentral経由Museum駅へ、約45分'}, via:[STR,CEN]},
-    {m:'walk', l:{zh:'穿越海德公園步行約 15 分',ja:'ハイドパークを抜けて徒歩約15分'}},
-    {m:'bus', l:{zh:'走到 Elizabeth St 搭 343 → 住處門口，約 40 分',ja:'Elizabeth Stまで歩いて343系統バスに乗車 → 自宅前まで約40分'}, via:BUS343_OUT}
+    {m:'walk', l:{zh:'步行約 10 分',ja:'徒歩約10分'}},
+    {m:'bus', l:{zh:'370 公車約 15 分直達雪梨大學',ja:'370系統バスで約15分シドニー大学へ直行'}},
+    {m:'bus', l:{zh:'公車／Uber 約 10 分直達魚市場',ja:'バス／Uberで約10分フィッシュマーケットへ直行'}},
+    {m:'train', l:{zh:'搭乘 L1 輕軌至 Central 轉火車至 Museum 站，穿越海德公園步行 15 分',ja:'L1ライトレールでCentralへ、電車でMuseum駅へ、ハイドパークを徒歩15分'}, via:[CEN]},
+    {m:'walk', l:{zh:'步行約 10 分至 Pitt St Mall',ja:'徒歩約10分でPitt St Mallへ'}},
+    {m:'bus', l:{zh:'Elizabeth St 搭乘 343 公車直達住處門口，約 40 分',ja:'Elizabeth Stから343系統バスで自宅前まで直通、約40分'}, via:BUS343_OUT}
   ],
   note:{
-    zh:'新南威爾斯美術館排這天下午——DFO 逛完直接搭火車回市區到 Museum 站，走 15 分穿過海德公園就到 Pitt St Mall，不用額外繞路。第一段從住處直接搭 343 公車（Google 地圖實測約 26 分、每 10 分一班）。不吃可選早餐就直接 Central 轉 Strathfield，DFO 十點開門。行李箱空間先預留，戰利品今天集中買齊。',
-    ja:'ニューサウスウェールズ州立美術館はこの日の午後——DFOの後はそのまま電車でシティへ戻りMuseum駅で下車、ハイドパークを15分歩けばPitt St Mallに着き、余計な遠回りがない。最初の区間は自宅から343系統バスに直接乗車（Googleマップ実測で約26分・10分間隔）。朝食を省く場合はそのままCentralからStrathfieldへ、DFOは10時開店。スーツケースのスペースを空けておき、お土産はこの日にまとめて購入。'
+    zh:'拿掉 DFO 後動線極度順暢！早上雪梨大學哈利波特樓，中午直衝 2026 年新開幕雪梨魚市場吃現剖生蠔與刺身，下午美術館沉澱，傍晚接續 Pitt St 週四 Night Shopping。',
+    ja:'DFOを外したことで動線が非常にスムーズに！朝はシドニー大学、昼は2026年新開業のフィッシュマーケットで生牡蠣と刺身、午後は美術館、夕方はPitt Stの木曜ナイトショッピングへ。'
   }
 },
 {
   id:'d6', iso:'2026-08-28',
-  title:{zh:'雪梨大學・新魚市場・唐人街', ja:'シドニー大学・新フィッシュマーケット・チャイナタウン'},
+  title:{zh:'南海岸公路自駕一日遊（純海岸・完整版）', ja:'南海岸ドライブ一日旅（純海岸・完全版）'},
   chips:[
-    {zh:'新魚市場 2026/1 開幕', ja:'新フィッシュマーケットは2026年1月開業'},
-    {zh:'Paddy’s 週三–日營業', ja:'Paddy’sは水〜日曜営業'}
+    {zh:'Mascot 門市取還車', ja:'Mascot店舗で受取・返却'},
+    {zh:'噴水洞＋玄武岩石柱奇觀', ja:'潮吹き穴＋玄武岩の奇岩'},
+    {zh:'臥龍崗燈塔看夕陽', ja:'ウーロンゴン灯台で夕日'},
+    {zh:'與藍山間隔 2 天', ja:'ブルーマウンテンから2日あける'}
   ],
   stops:[
-    {t:'08:30', n:{zh:'住處出發',ja:'宿を出発'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
-    {t:'08:45', n:{zh:'The Grounds Coffee Factory',ja:'The Grounds Coffee Factory'}, d:{zh:'早餐（住處附近 Alexandria 一帶）',ja:'朝食（宿から近いAlexandria周辺）'}, dur:{zh:'約 50 分',ja:'約50分'}, ll:[-33.9106,151.1940], q:'The Grounds Coffee Factory Alexandria'},
-    {t:'10:00', n:{zh:'雪梨大學',ja:'シドニー大学'}, d:{zh:'主四合院、Graffiti Tunnel',ja:'メインクアドラングル、グラフィティ・トンネル'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.8880,151.1874], q:'University of Sydney Quadrangle'},
-    {t:'11:20', n:{zh:'Glebe Point Rd',ja:'グリーブ・ポイント・ロード'}, d:{zh:'老街散步、二手書店',ja:'古い街並みを散策、古書店めぐり'}, dur:{zh:'約 40 分',ja:'約40分'}, ll:[-33.8802,151.1863], q:'Glebe Point Road'},
-    {t:'12:15', n:{zh:'新雪梨魚市場',ja:'新シドニー・フィッシュマーケット'}, d:{zh:'Blackwattle Bay 新館：海鮮午餐＋逛 42 家攤商',ja:'Blackwattle Bayの新館：海鮮ランチ＋42店舗を見て回る'}, dur:{zh:'約 2 小時',ja:'約2時間'}, ll:[-33.8776,151.1856], q:'Sydney Fish Market'},
-    {t:'15:00', n:{zh:"Paddy's Markets",ja:'パディーズ・マーケット'}, d:{zh:'紀念品最便宜的地方（週三–日）',ja:'お土産が一番安く買える場所（水〜日曜）'}, dur:{zh:'約 1 小時 20 分',ja:'約1時間20分'}, ll:[-33.8792,151.2043], q:'Paddys Markets Haymarket'},
-    {t:'16:30', n:{zh:'唐人街',ja:'チャイナタウン'}, d:{zh:'德信街、Darling Square 晃晃',ja:'Dixon St、Darling Squareをぶらぶら'}, dur:{zh:'約 50 分',ja:'約50分'}, ll:[-33.8783,151.2037], q:'Chinatown Sydney'},
-    {t:'17:30', n:{zh:'Hay St Market 晚餐',ja:'Hay St Marketで夕食'}, d:{zh:'美食街收尾',ja:'フードコートで締めくくり'}, dur:{zh:'約 1 小時 20 分',ja:'約1時間20分'}, ll:[-33.8797,151.2056], q:'Hay St Market Haymarket'},
-    {t:'19:15', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
+    {t:'08:00', n:{zh:'Green Motion 取車 (Mascot)',ja:'Green Motionで受取 (Mascot)'}, d:{zh:'Mascot 門市辦理取車手續，出發避開 CBD 塞車',ja:'Mascot店舗で受取手続き、CBDの渋滞を避けて出発'}, dur:{zh:'約 40 分',ja:'約40分'}, ll:[-33.9275,151.1895], q:'Green Motion Sydney Airport Mascot'},
+    {t:'09:20', n:{zh:'Bald Hill Lookout',ja:'ボールド・ヒル展望台'}, d:{zh:'俯瞰 Illawarra 全景海岸線與高空滑翔傘',ja:'Illawarra沿岸の全景とパラグライダーを望む'}, dur:{zh:'約 30 分',ja:'約30分'}, ll:[-34.1802,151.0022], q:'Bald Hill Lookout Stanwell Park'},
+    {t:'10:05', n:{zh:'Sea Cliff Bridge (海崖大橋)',ja:'シー・クリフ・ブリッジ'}, d:{zh:'橫跨太平洋斷崖的弧形公路，下車走人行步道拍照',ja:'太平洋の断崖に架かる弧状の橋、徒歩で歩道を散策・撮影'}, dur:{zh:'約 55 分',ja:'約55分'}, ll:[-34.2541,150.9744], q:'Sea Cliff Bridge'},
+    {t:'11:30', n:{zh:'Cathedral Rocks / Minnamurra',ja:'カテドラル・ロックス'}, d:{zh:'屹立海中的玄武岩奇石群',ja:'海にそびえ立つ玄武岩の奇岩群'}, dur:{zh:'約 30 分',ja:'約30分'}, ll:[-34.6465,150.8601], q:'Cathedral Rocks Kiama'},
+    {t:'12:15', n:{zh:'Bombo Headland',ja:'ボンボ・ヘッドランド'}, d:{zh:'異星般壯觀的玄武岩石柱區步道',ja:'異星のような迫力ある玄武岩の柱状節理の歩道'}, dur:{zh:'約 35 分',ja:'約35分'}, ll:[-34.6558,150.8569], q:'Bombo Headland Geological Site'},
+    {t:'13:00', n:{zh:'Kiama Blowhole ＋ 鎮上午餐',ja:'キアマ潮吹き穴＋街で昼食'}, d:{zh:'觀賞大噴水洞水柱，港邊享用 Fish & Chips / 咖啡',ja:'潮吹き穴の噴水を鑑賞、港辺でフィッシュ＆チップスやカフェ'}, dur:{zh:'約 1 小時 15 分',ja:'約1時間15分'}, ll:[-34.6720,150.8628], q:'Kiama Blowhole'},
+    {t:'14:30', n:{zh:'Little Blowhole (秘境小噴水口)',ja:'リトル・潮吹き穴'}, d:{zh:'在地人私房景點，噴水頻率高且震撼',ja:'地元の穴場スポット、噴水頻度が高く迫力満点'}, dur:{zh:'約 20 分',ja:'約20分'}, ll:[-34.6869,150.8573], q:'Little Blowhole Kiama'},
+    {t:'15:00', n:{zh:'Werri Beach, Gerringong',ja:'ウェリ・ビーチ'}, d:{zh:'折返點：白沙灘踏浪散步、感受慢活',ja:'折り返し地点：白砂のビーチで散歩とリラックス'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-34.7431,150.8322], q:'Werri Beach Gerringong'},
+    {t:'16:35', n:{zh:'Flagstaff Point Lighthouse',ja:'ウーロンゴン灯台'}, d:{zh:'臥龍崗燈塔，喝咖啡/冰淇淋卡位 17:25 黃昏夕陽',ja:'ウーロンゴン灯台、コーヒーやアイスで17:25の夕日を鑑賞'}, dur:{zh:'約 40 分',ja:'約40分'}, ll:[-34.4227,150.9061], q:'Wollongong Head Lighthouse'},
+    {t:'17:15', n:{zh:'出發走 M1 回程',ja:'M1で帰路へ'}, d:{zh:'天黑前上高速公路，避開夜間山路',ja:'暗くなる前に高速道路に乗車、夜間の山道を回避'}, dur:null, ll:[-34.4227,150.9061], q:'Wollongong Head Lighthouse'},
+    {t:'18:25', n:{zh:'Green Motion 還車 (Mascot)',ja:'Green Motionで返却 (Mascot)'}, d:{zh:'順利還車，搭 Uber/公車回 Rosebery 住處自炊',ja:'返却完了、Uber/バスでローズベリーの宿へ戻り自炊'}, dur:null, ll:[-33.9275,151.1895], q:'Green Motion Sydney Airport Mascot'}
   ],
   legs:[
-    {m:'walk', l:{zh:'步行約 15 分',ja:'徒歩約15分'}},
-    {m:'bus', l:{zh:'370 公車約 20 分',ja:'370系統バスで約20分'}},
-    {m:'walk', l:{zh:'校園＋Glebe 散步約 20 分',ja:'キャンパス＋Glebeを散策、約20分'}},
-    {m:'walk', l:{zh:'步行約 15 分',ja:'徒歩約15分'}},
-    {m:'lightrail', l:{zh:'步行至 Wentworth Park → L1 輕軌 → Paddy’s Markets 站，約 20 分',ja:'Wentworth Parkまで徒歩 → L1ライトレール → Paddy’s Markets駅、約20分'}, via:[[-33.8779,151.1902]]},
-    {m:'walk', l:{zh:'步行 3 分',ja:'徒歩3分'}},
-    {m:'walk', l:{zh:'步行 4 分',ja:'徒歩4分'}},
-    {m:'train', l:{zh:'步行到 Central → Green Square，約 25 分',ja:'Centralまで歩いて → Green Square、約25分'}, via:[CEN,GS]}
+    {m:'taxi', l:{zh:'自駕行駛 M1 高速公路約 40 分',ja:'ドライブ M1高速道路で約40分'}},
+    {m:'taxi', l:{zh:'沿 Grand Pacific Drive 行駛 5 分',ja:'Grand Pacific Drive沿いにドライブ 5分'}},
+    {m:'taxi', l:{zh:'沿海岸公路自駕約 40 分',ja:'海岸道路をドライブ 約40分'}},
+    {m:'taxi', l:{zh:'自駕約 5 分',ja:'ドライブ 約5分'}},
+    {m:'taxi', l:{zh:'自駕約 8 分',ja:'ドライブ 約8分'}},
+    {m:'taxi', l:{zh:'自駕約 5 分',ja:'ドライブ 約5分'}},
+    {m:'taxi', l:{zh:'自駕約 10 分',ja:'ドライブ 約10分'}},
+    {m:'taxi', l:{zh:'沿 M1 北返臥龍崗燈塔約 35 分',ja:'M1を北上しウーロンゴン灯台へ 約35分'}},
+    {m:'taxi', l:{zh:'17:15 出發走 M1 高速公路返回 Mascot，約 70 分',ja:'17:15発 M1高速道路でMascotへ戻る 約70分'}},
+    {m:'taxi', l:{zh:'還車手續約 10 分',ja:'返却手続き 約10分'}}
   ],
   note:{
-    zh:'魚市場定番：生蠔、綜合炸海鮮拼盤、生魚片丼；買了就到戶外水岸座位吃。',
-    ja:'フィッシュマーケットの定番：生牡蠣、シーフードミックスフライ、海鮮丼；買ったら屋外の水辺の席で食べよう。'
+    zh:'完美純海岸自駕路線！避開市區塞車與危險夜間山路，串聯海崖大橋、玄武岩石柱、大小噴水洞與臥龍崗燈塔 sunset。還車點在 Mascot，距離 Rosebery 住處僅 5 分鐘車程。',
+    ja:'完璧な純海岸ドライブコース！シティの渋滞や夜間の危険な山道を避け、シー・クリフ・ブリッジ、玄武岩の奇岩、大小の潮吹き穴、ウーロンゴン灯台の夕日を連結。返却場所のMascotは宿から車でわずか5分。'
   }
 },
 {
   id:'d7', iso:'2026-08-29',
-  title:{zh:'邦迪海灘・海岸步道・打包日', ja:'ボンダイビーチ・海岸遊歩道・荷造りの日'},
+  title:{zh:'邦迪海灘・海岸步道・港灣大橋夕陽', ja:'ボンダイビーチ・海岸遊歩道・ハーバーブリッジの夕日'},
   chips:[
     {zh:'Bondi 農夫市集週六 9–13', ja:'Bondiファーマーズマーケットは土曜9–13時'},
+    {zh:'333 公車一車直達大橋', ja:'333系統バスで橋まで直行'},
     {zh:'17:25 在港灣大橋上看日落', ja:'17:25 ハーバーブリッジの上で日没'},
-    {zh:'8 月底有機會望見鯨魚', ja:'8月末はクジラが見られることも'}
+    {zh:'四大地標完美集齊', ja:'四大必見スポット完結'}
   ],
   stops:[
     {t:'08:00', n:{zh:'THEECA 早餐',ja:'THEECAで朝食'}, d:{zh:'住處旁的 Rosebery 名店，週末早點到',ja:'宿のすぐ近く、ローズベリーの人気店、週末は早めに行くのがおすすめ'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.9163,151.1993], q:'THEECA Rosebery'},
-    {t:'09:45', n:{zh:'Bondi Farmers Market',ja:'ボンダイ・ファーマーズマーケット'}, d:{zh:'週六 9:00–13:00，邊逛邊吃當早午餐',ja:'土曜9:00–13:00、food をつまみながらブランチ代わりに'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8880,151.2777], q:'Bondi Beach Public School'},
-    {t:'10:45', n:{zh:'邦迪海灘',ja:'ボンダイビーチ'}, d:{zh:'脫鞋踩沙、看衝浪；來都來了別只拍照就走',ja:'裸足で砂浜を歩き、サーファーを眺める；せっかくなので写真だけで終わらせない'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8908,151.2743], q:'Bondi Beach'},
-    {t:'11:45', n:{zh:'Icebergs 泳池',ja:'アイスバーグス・プール'}, d:{zh:'招牌機位拍照',ja:'定番の撮影スポット'}, dur:{zh:'約 30 分',ja:'約30分'}, ll:[-33.8950,151.2745], q:'Bondi Icebergs'},
-    {t:'13:30', n:{zh:'Bronte Beach',ja:'ブロンテビーチ'}, d:{zh:'海岸步道終點，冬季海色最藍；8 月底有機會看到鯨魚',ja:'海岸遊歩道の終点、冬は海の色が一番青い；8月末はクジラが見えることも'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.9037,151.2688], q:'Bronte Beach'},
-    {t:'14:45', n:{zh:'Bondi 午餐',ja:'ボンダイで昼食'}, d:{zh:'海邊餐廳慢慢吃',ja:'海沿いのレストランでゆっくりと'}, dur:{zh:'約 1 小時 15 分',ja:'約1時間15分'}, ll:[-33.8913,151.2749], q:'Bondi Beach'},
-    {t:'16:50', n:{zh:'港灣大橋步道',ja:'ハーバーブリッジ遊歩道'}, d:{zh:'四大必去最後一個：真的走過橋（東側人行道免費）。17:25 日落，剛好在橋上看夕陽與亮燈的歌劇院',ja:'四大必見の最後：実際に橋を歩いて渡る（東側の歩道は無料）。17:25が日没、橋の上から夕日とライトアップされたオペラハウスを望める'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.8523,151.2108], q:'Sydney Harbour Bridge'},
+    {t:'09:30', n:{zh:'Bondi Farmers Market',ja:'ボンダイ・ファーマーズマーケット'}, d:{zh:'週六 9:00–13:00 限定，邊逛邊吃當早午餐',ja:'土曜9:00–13:00限定、ブランチ代わりに食べ歩き'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8880,151.2777], q:'Bondi Beach Public School'},
+    {t:'10:30', n:{zh:'邦迪海灘',ja:'ボンダイビーチ'}, d:{zh:'脫鞋踩沙、看衝浪；感受澳洲海洋文化',ja:'裸足で砂浜を歩き、サーフィン観賞；オーストラリアの海文化を体感'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:[-33.8908,151.2743], q:'Bondi Beach'},
+    {t:'11:30', n:{zh:'Icebergs 泳池',ja:'アイスバーグス・プール'}, d:{zh:'招牌海景泳池機位拍照',ja:'定番の海景プール撮影スポット'}, dur:{zh:'約 30 分',ja:'約30分'}, ll:[-33.8950,151.2745], q:'Bondi Icebergs'},
+    {t:'12:30', n:{zh:'Bronte Beach',ja:'ブロンテビーチ'}, d:{zh:'Bondi to Bronte 懸崖海岸步道；8 月底有機會望見鯨魚',ja:'Bondi to Bronte懸崖遊歩道；8月末はクジラが見えることも'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.9037,151.2688], q:'Bronte Beach'},
+    {t:'14:00', n:{zh:'Bondi 午餐',ja:'ボンダイで昼食'}, d:{zh:'海邊餐廳慢享午餐與咖啡',ja:'海沿いのレストランでランチとコーヒー'}, dur:{zh:'約 1.5 小時',ja:'約1時間30分'}, ll:[-33.8913,151.2749], q:'Bondi Beach'},
+    {t:'15:30', n:{zh:'搭乘 333 公車前往 CQ',ja:'333系統バスでCircular Quayへ'}, d:{zh:'班次極多，一車直達 Circular Quay（上車吹冷氣休息 45 分）',ja:'本数が非常に多くCircular Quayへ直行（車内で45分休憩）'}, dur:{zh:'約 45 分',ja:'約45分'}, ll:CQ, q:'Circular Quay'},
+    {t:'16:50', n:{zh:'港灣大橋步道',ja:'ハーバーブリッジ遊歩道'}, d:{zh:'四大地標最後一個：徒步走東側人行道（免費），17:25 日落看夕陽與點燈歌劇院',ja:'四大必見の最後：東側歩道を徒歩見学（無料）、17:25の日没に夕日とオペラハウスを望む'}, dur:{zh:'約 1 小時',ja:'約1時間'}, ll:[-33.8523,151.2108], q:'Sydney Harbour Bridge'},
     {t:'18:30', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'打包行李、清冰箱、確認明早火車時刻',ja:'荷造り、冷蔵庫の整理、翌朝の電車時刻を確認'}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
-    {m:'train', l:{zh:'火車經 Central → Bondi Junction → 333 公車，約 50 分（或查 418 公車直達 Bondi Junction）',ja:'電車でCentral経由 → Bondi Junction → 333系統バス、約50分（または418系統バスでBondi Junctionまで直通も要確認）'}, via:[GS,CEN,BJ]},
+    {m:'bus', l:{zh:'搭乘公車經 Bondi Junction 轉 333 至 Bondi，約 40 分',ja:'バスでBondi Junction経由、333系統でBondiへ 約40分'}, via:[BJ]},
     {m:'walk', l:{zh:'步行 5 分',ja:'徒歩5分'}},
     {m:'walk', l:{zh:'沿灘步行 10 分',ja:'ビーチ沿いを徒歩10分'}},
-    {m:'walk', l:{zh:'Bondi→Bronte 海岸步道約 1 小時',ja:'Bondi→Bronte海岸遊歩道を約1時間'}},
-    {m:'bus', l:{zh:'379／333 公車回邦迪約 10 分',ja:'379／333系統バスでBondiへ約10分'}},
-    {m:'bus', l:{zh:'333 公車 Bondi → Circular Quay 約 45 分，再步行 10 分上橋',ja:'333系統バスでBondi → Circular Quayまで約45分、さらに徒歩10分で橋へ'}, via:[BJ,CQ]},
-    {m:'bus', l:{zh:'走回 Circular Quay 搭 343 → 住處門口，約 45 分',ja:'Circular Quayまで歩いて戻り343系統バス → 自宅前まで約45分'}, via:BUS343_OUT}
+    {m:'walk', l:{zh:'Bondi to Bronte 海岸懸崖步道徒步約 50 分',ja:'Bondi to Bronte海岸遊歩道を徒歩約50分'}},
+    {m:'bus', l:{zh:'公車回邦迪海灘約 10 分',ja:'バスでボンダイビーチへ戻る 約10分'}},
+    {m:'bus', l:{zh:'神器 333 公車直達 Circular Quay 約 45 分，步行 10 分登上港灣大橋',ja:'333系統バスでCircular Quayへ直行約45分、徒歩10分でハーバーブリッジへ'}, via:[BJ,CQ]},
+    {m:'bus', l:{zh:'Circular Quay 搭乘 343 公車直達住處門口，約 40 分',ja:'Circular Quayから343系統バスで自宅前まで直通 約40分'}, via:BUS343_OUT}
   ],
   note:{
-    zh:'原本這天 15:30 就回住處、海灘每站只待 15–30 分，太空也太趕；現在海灘各站都拉長，並把原本只「遠眺」的港灣大橋補成真的走一趟——四大必去的最後一個，剛好卡在 17:25 日落。橋上東側人行道免費、無需預約（付費的是攀橋 BridgeClimb，兩者不同）。回到住處約 18:30，晚上打包行李、清冰箱，明早 07:30 出發。今晚 Darling Harbour 沒有煙火（冬季改每月第一個週六）。',
-    ja:'元々この日は15:30に宿へ戻り、ビーチも各15〜30分と短すぎて物足りなかったため、各ビーチの滞在を延長し、これまで「遠望」だけだったハーバーブリッジを実際に歩く行程に変更——四大必見の最後の一つで、17:25の日没にちょうど重なる。橋の東側歩道は無料・予約不要（有料なのは橋に登るBridgeClimbで別物）。宿には18:30頃到着、夜は荷造りと冷蔵庫の整理を、翌朝は07:30出発。今夜はDarling Harbourの花火はなし（冬季は毎月第1土曜のみ）。'
+    zh:'Bondi 市集為週六限定（9:00–13:00）。 afternoon 搭乘班次極多的 333 神器公車免轉車直達 Circular Quay，16:50 登上港灣大橋東側免費人行道，卡位 17:25 夕陽看點燈歌劇院，四大地標完美集齊！晚上 18:30 返抵住處打包行李。',
+    ja:'Bondiマーケットは土曜限定（9:00–13:00）。午後は本数の多い333系統バスで乗換なしでCircular Quayへ直行、16:50にハーバーブリッジ東側無料歩道へ。17:25の夕日とライトアップされたオペラハウスを鑑賞。18:30宿帰着、荷造り。'
   }
 },
 {
@@ -678,8 +691,8 @@ const DAYS = [
     {t:'08:05', n:{zh:'機場國際航廈',ja:'空港国際線ターミナル'}, d:{zh:'08:15 廈航櫃檯報到（起飛前 60 分關櫃）；11:25 MF802 起飛',ja:'08:15 廈門航空カウンターでチェックイン（出発60分前締切）；11:25 MF802出発'}, dur:null, ll:[-33.9365,151.1664], q:'Sydney International Airport T1'}
   ],
   legs:[
-    {m:'walk', l:{zh:'拖行李步行 12–15 分（或叫短程計程車，留緩衝）',ja:'スーツケースを引いて徒歩12〜15分（余裕を見て近距離タクシーも可）'}},
-    {m:'train', l:{zh:'T8 兩站約 8 分',ja:'T8線で2駅、約8分'}}
+    {m:'walk', l:{zh:'拖行李步行 12–15 分（或短程計程車至 Green Square）',ja:'スーツケースを引いて徒歩12〜15分（またはGreen Squareまで近距離タクシー）'}},
+    {m:'train', l:{zh:'T8 機場線兩站約 8 分直達機場',ja:'T8空港線で2駅、約8分で空港直通'}}
   ],
   note:{
     zh:'落地廈門 18:55 → 中轉酒店過夜（入境仍需台胞證）。在雪梨報到時確認行李掛到廈門或直掛台北——若直掛台北，換洗衣物記得放隨身包。8/31 08:20 MF887 → 10:10 抵桃園。',
@@ -813,7 +826,7 @@ document.getElementById('langBtn').addEventListener('click', () => {
 /* ---------- 真實路線：Valhalla 公開路由服務（免金鑰） ----------
    走路／公車／計程車會沿真實道路繪製；火車、輕軌、渡輪、飛機
    沒有免費的公開路網 API，仍以轉乘點連線示意。               */
-const ROUTE_COSTING = { walk:'pedestrian', bus:'bus', taxi:'auto' };
+const ROUTE_COSTING = { walk:'pedestrian', bus:'bus', taxi:'auto', car:'auto' };
 
 const routeCache = {};
 try { Object.assign(routeCache, JSON.parse(localStorage.getItem('sydRoutes2') || '{}')); } catch (e) {}
