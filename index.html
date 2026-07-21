@@ -520,6 +520,7 @@ const DAYS = [
   ],
   stops:[
     {t:'07:00', n:{zh:'住處出發',ja:'宿を出発'}, d:{zh:'門口搭 343 公車去 Central 轉火車（免早起走去 Green Square 吹寒風）',ja:'自宅前から343系統バスでCentralへ（寒風の中徒歩でGreen Squareへ行かずに済む）'}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'},
+    {t:'07:35', n:{zh:'Central 車站',ja:'セントラル駅'}, d:{zh:'343 公車約 35 分直達 Central，轉乘藍山線火車',ja:'343系統バスで約35分・Central駅でブルーマウンテン線に乗り換え'}, dur:{zh:'約 10 分',ja:'約10分'}, ll:CEN, q:'Central Station Sydney'},
     {t:'09:30', n:{zh:'Katoomba 車站',ja:'カトゥーンバ駅'}, d:{zh:'',ja:''}, dur:{zh:'約 10 分',ja:'約10分'}, ll:[-33.7128,150.3119], q:'Katoomba Station'},
     {t:'10:00', n:{zh:'Echo Point 三姊妹岩',ja:'エコーポイント（スリーシスターズ）'}, d:{zh:'觀景台＋峽谷全景',ja:'展望台から渓谷の全景を一望'}, dur:{zh:'約 30 分',ja:'約30分'}, ll:[-33.7320,150.3122], q:'Echo Point Katoomba'},
     {t:'11:15', n:{zh:'Scenic World',ja:'シーニックワールド'}, d:{zh:'礦車鐵道、纜車、雨林棧道；套票線上買較省',ja:'トロッコ鉄道・ケーブルカー・熱帯雨林の遊歩道；セット券はオンライン購入がお得'}, dur:{zh:'約 3 小時',ja:'約3時間'}, ll:[-33.7273,150.2996], q:'Scenic World Katoomba'},
@@ -528,7 +529,8 @@ const DAYS = [
     {t:'19:45', n:{zh:'回到住處',ja:'宿に戻る'}, d:{zh:'',ja:''}, dur:null, ll:HOME, q:'5 Confectioners Way Rosebery NSW'}
   ],
   legs:[
-    {m:'bus', l:{zh:'343 公車至 Central 站轉乘藍山線火車至 Katoomba，約 2 小時 10 分',ja:'343系統バスでCentral駅へ、ブルーマウンテン線電車に乗り換えKatoombaへ、約2時間10分'}, via:[CEN]},
+    {m:'bus', l:{zh:'343 公車 Rothschild Ave 門口上車 → Central，約 35 分，不用步行到 Green Square',ja:'343系統バスにRothschild Ave前から乗車 → Centralへ約35分・Green Squareまで歩く必要なし'}, via:BUS343_IN},
+    {m:'train', l:{zh:'Central → 藍山線直達 Katoomba，約 1 小時 55 分',ja:'Central → ブルーマウンテン線直通でKatoombaまで約1時間55分'}, via:[CEN]},
     {m:'bus', l:{zh:'686 公車約 10 分（或步行 30 分）',ja:'686系統バスで約10分（または徒歩30分）'}},
     {m:'walk', l:{zh:'Prince Henry 懸崖步道約 40 分',ja:'プリンス・ヘンリー崖沿いの遊歩道を約40分'}},
     {m:'bus', l:{zh:'686 回 Katoomba → 火車一站到 Leura',ja:'686系統バスでKatoombaへ戻り → 電車で一駅先のLeuraへ'}},
